@@ -5,4 +5,4 @@ cd ${HW1DIR}
 cp ${1} ${HW1TF}
 chmod 711 ${HW1TF}
 cd ..
-
+./hw1_subs ${2} ${3}
