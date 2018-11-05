@@ -41,7 +41,7 @@ int main(int argc,char** argv){
 		free(buffer);
 		return 1;
 	}
-	addto=(char*)calloc(strlen(dir)+strlen(file)+1,1);
+	addto=(char*)calloc(strlen(dir)+strlen(file)+2,1);
 	if (addto == NULL) {
 		printf("Error: calloc has failed (memory allocation error)\n");
 		free(buffer);
