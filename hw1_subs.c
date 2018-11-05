@@ -33,6 +33,7 @@ int main(int argc,char** argv){
 		printf("Error: malloc has failed (memory allocation error)\n");
 		return 1;
 	}
+	buffer="";
 	char* dir=getenv("HW1DIR");
 	char* file=getenv("HW1TF");
 	if((!dir) || (!file)){ /*from stackoverflow
@@ -47,6 +48,7 @@ int main(int argc,char** argv){
 		free(buffer);
 		return 1;
 	}
+	addto="";
 	concat(addto,dir);
 	concat(addto,"/");
 	concat(addto,file);
