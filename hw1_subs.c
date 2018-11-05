@@ -28,7 +28,7 @@ int main(int argc,char** argv){
 	char* addto;
 	int fd=0;
 	int offset=0;
-	char* buffer=(char*)malloc(strlen(argv[1]));
+	char* buffer=(char*)malloc(strlen(argv[1])+1);
 	if (buffer == NULL) {
 		printf("Error: malloc has failed (memory allocation error)\n",);
 		return 1;
