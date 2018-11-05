@@ -61,6 +61,8 @@ int main(int argc,char** argv){
 	while((temp=pread(fd,buffer,strlen(argv[1]),offset))){
 		if(temp<0){
 		printf("Error reading from file: %s\n",strerror(errno));
+		free(addto);
+		free(buffer);
 		return 1;
 	}
 		if(!(strcmp(argv[1],buffer))){
