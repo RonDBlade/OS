@@ -37,11 +37,14 @@ int main(int argc,char** argv){
 	char* file=getenv("HW1TF");
 	if((!dir) || (!file)){ /*from stackoverflow
 "how to check if enviroment variable is set from c program"*/
-	printf("Error: Atleast one of the enviroment variables needed is not defined\n");
-	return 1;}
+		printf("Error: Atleast one of the enviroment variables needed is not defined\n");
+		free(buffer);
+		return 1;
+	}
 	addto=(char*)malloc(strlen(dir)+strlen(file)+1);
 	if (addto == NULL) {
 		printf("Error: malloc has failed (memory allocation error)\n");
+		free(buffer);
 		return 1;
 	}
 	concat(addto,dir);
@@ -49,8 +52,10 @@ int main(int argc,char** argv){
 	concat(addto,file);
 	fd=open(addto,O_RDONLY);
 	if(fd<0){
-	printf("Error opening file: %s\n",strerror(errno));
-	return 1;
+		printf("Error opening file: %s\n",strerror(errno));
+		free(addto);
+		free(buffer);
+		return 1;
 }
 
 	while((temp=pread(fd,buffer,strlen(argv[1]),offset))){
@@ -69,5 +74,6 @@ int main(int argc,char** argv){
 }
 	close(fd);
 	free(addto);
+	free(buffer);
 	return 0;
 }
