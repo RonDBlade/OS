@@ -30,7 +30,7 @@ int main(int argc,char** argv){
 	int offset=0;
 	char* buffer=(char*)malloc(strlen(argv[1])+1);
 	if (buffer == NULL) {
-		printf("Error: malloc has failed (memory allocation error)\n",);
+		printf("Error: malloc has failed (memory allocation error)\n");
 		return 1;
 	}
 	char* dir=getenv("HW1DIR");
@@ -41,7 +41,7 @@ int main(int argc,char** argv){
 	return 1;}
 	addto=(char*)malloc(strlen(dir)+strlen(file)+1);
 	if (addto == NULL) {
-		printf("Error: malloc has failed (memory allocation error)\n",);
+		printf("Error: malloc has failed (memory allocation error)\n");
 		return 1;
 	}
 	concat(addto,dir);
