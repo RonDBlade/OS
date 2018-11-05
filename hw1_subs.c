@@ -29,6 +29,10 @@ int main(int argc,char** argv){
 	int fd=0;
 	int offset=0;
 	char* buffer=(char*)malloc(strlen(argv[1]));
+	if (buffer == NULL) {
+		printf("Error: malloc has failed (memory allocation error)\n",);
+		return 1;
+	}
 	char* dir=getenv("HW1DIR");
 	char* file=getenv("HW1TF");
 	if((!dir) || (!file)){ /*from stackoverflow
@@ -36,6 +40,10 @@ int main(int argc,char** argv){
 	printf("Error: Atleast one of the enviroment variables needed is not defined\n");
 	return 1;}
 	addto=(char*)malloc(strlen(dir)+strlen(file)+1);
+	if (addto == NULL) {
+		printf("Error: malloc has failed (memory allocation error)\n",);
+		return 1;
+	}
 	concat(addto,dir);
 	concat(addto,"/");
 	concat(addto,file);
