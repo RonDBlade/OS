@@ -48,12 +48,14 @@ int main(int argc,char** argv){
 "how to check if enviroment variable is set from c program"*/
 		printf("Error: Atleast one of the enviroment variables needed is not defined\n");
 		free(buffer);
+		free(tempchar);
 		return 1;
 	}
 	addto=(char*)calloc(strlen(dir)+strlen(file)+2,1);
 	if (addto == NULL) {
 		printf("Error: calloc has failed (memory allocation error)\n");
 		free(buffer);
+		free(tempchar);
 		return 1;
 	}
 	concat(addto,dir);
@@ -64,6 +66,7 @@ int main(int argc,char** argv){
 		printf("Error opening file: %s\n",strerror(errno));
 		free(addto);
 		free(buffer);
+		free(tempchar);
 		return 1;
 }
 	do{
