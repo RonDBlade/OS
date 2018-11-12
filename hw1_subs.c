@@ -1,6 +1,3 @@
-#define _XOPEN_SOURCE 500 /*added according to stackoverflow
-"pread and pwrite not defined",gives warning without this*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -9,6 +6,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
+void stringshift(char* buffer,char* tempchar){
+	int i;
+	for(i=0;i<strlen(argv[1]);i++){
+	buffer[i]=buffer[i+1];
+	}
+	buffer[strlen(argv[1])]=tempchar[0];
+}
 
 void concat(char* first,char* second){
         while(*first!='\0'){
@@ -25,10 +29,12 @@ void concat(char* first,char* second){
 
 int main(int argc,char** argv){
 	int temp;
+	int temp2;
 	char* addto;
 	int fd=0;
 	int offset=0;
 	char* buffer=(char*)calloc(strlen(argv[1])+1,1);
+	char* tempchar=(char*)calloc(2,1);
 	if (buffer == NULL) {
 		printf("Error: calloc has failed (memory allocation error)\n");
 		return 1;
@@ -57,7 +63,27 @@ int main(int argc,char** argv){
 		free(buffer);
 		return 1;
 }
-
+	do{
+		if(temp2)
+			temp=read(fd,buffer,strlen(argv[1]));
+		else
+			temp=read(fd,tempchar,1);
+		if(temp<0){
+			printf("Error reading from file: %s\n",strerror(errno));
+			free(addto);
+			free(buffer);
+			return 1;
+	}
+		if(!temp2)
+			stringshift(buffer,tempchar);
+		if(!(strcmp(argv[1],buffer))){
+			fwrite(argv[2],1,strlen(argv[2]),stdout);
+			temp2=1;
+	}
+		else{
+			fwrite(buffer,1,1,stdout);
+			temp2=0;
+		}
 	while((temp=pread(fd,buffer,strlen(argv[1]),offset))){
 		if(temp<0){
 		printf("Error reading from file: %s\n",strerror(errno));
