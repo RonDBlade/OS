@@ -75,23 +75,23 @@ int main(int argc,char** argv){
 		if(temp2){
 			temp=read(fd,buffer,strlen(argv[1]));
 			if(temp<0){
-			printf("Error reading from file: %s\n",strerror(errno));
-			free(addto);
-			free(buffer);
-			return 1;
-	}
+				printf("Error reading from file: %s\n",strerror(errno));
+				free(addto);
+				free(buffer);
+				return 1;
+			}
 		}
 		else{
 			temp=read(fd,tempchar,1);
 			if(temp<0){
-			printf("Error reading from file: %s\n",strerror(errno));
-			free(addto);
-			free(buffer);
-			return 1;
+				printf("Error reading from file: %s\n",strerror(errno));
+				free(addto);
+				free(buffer);
+				return 1;
 			}
 		}
 		if(!temp2){
-			stringshift(buffer,tempchar,strlen(argv[1]));
+			stringshift(buffer,tempchar,temp);
 		}
 	if(!(strcmp(argv[1],buffer))){
 			fwrite(argv[2],1,strlen(argv[2]),stdout);
