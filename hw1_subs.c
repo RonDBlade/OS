@@ -41,6 +41,7 @@ int main(int argc,char** argv){
 	char* tempchar=(char*)calloc(2,1);
 	if(tempchar==NULL){
 		printf("Error: calloc has failed (memory allocation error)\n");
+		return 1;
 	}
 	char* dir=getenv("HW1DIR");
 	char* file=getenv("HW1TF");
