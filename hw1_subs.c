@@ -31,6 +31,7 @@ void concat(char* first,char* second){
 int main(int argc,char** argv){
 	int temp;
 	int temp2=1;
+	int lastlen=0;
 	char* addto;
 	int fd=0;
 	char* buffer=(char*)calloc(strlen(argv[1])+1,1);
@@ -91,7 +92,7 @@ int main(int argc,char** argv){
 			}
 		}
 		if(!temp2){
-			stringshift(buffer,tempchar,temp);
+			stringshift(buffer,tempchar,lastlen);
 		}
 	if(!(strcmp(argv[1],buffer))){
 			fwrite(argv[2],1,strlen(argv[2]),stdout);
@@ -101,6 +102,7 @@ int main(int argc,char** argv){
 			fwrite(buffer,1,1,stdout);
 			temp2=0;
 		}
+		lastlen=temp;
 	}
 	while(temp);
 	close(fd);
