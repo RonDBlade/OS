@@ -6,12 +6,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
-void stringshift(char* buffer,char* tempchar){
+
+void stringshift(char* buffer,char* tempchar,int bufferlen){
 	int i;
-	for(i=0;i<strlen(argv[1]);i++){
+	for(i=0;i<bufferlen-1;i++){
 	buffer[i]=buffer[i+1];
 	}
-	buffer[strlen(argv[1])]=tempchar[0];
+	buffer[bufferlen-1]=tempchar[0];
 }
 
 void concat(char* first,char* second){
@@ -29,15 +30,17 @@ void concat(char* first,char* second){
 
 int main(int argc,char** argv){
 	int temp;
-	int temp2;
+	int temp2=1;
 	char* addto;
 	int fd=0;
-	int offset=0;
 	char* buffer=(char*)calloc(strlen(argv[1])+1,1);
-	char* tempchar=(char*)calloc(2,1);
 	if (buffer == NULL) {
 		printf("Error: calloc has failed (memory allocation error)\n");
 		return 1;
+	}
+	char* tempchar=(char*)calloc(2,1);
+	if(tempchar==NULL){
+		printf("Error: calloc has failed (memory allocation error)\n");
 	}
 	char* dir=getenv("HW1DIR");
 	char* file=getenv("HW1TF");
@@ -74,9 +77,10 @@ int main(int argc,char** argv){
 			free(buffer);
 			return 1;
 	}
-		if(!temp2)
-			stringshift(buffer,tempchar);
-		if(!(strcmp(argv[1],buffer))){
+		if(!temp2){
+			stringshift(buffer,tempchar,strlen(argv[1]));
+		}
+	if(!(strcmp(argv[1],buffer))){
 			fwrite(argv[2],1,strlen(argv[2]),stdout);
 			temp2=1;
 	}
@@ -84,24 +88,11 @@ int main(int argc,char** argv){
 			fwrite(buffer,1,1,stdout);
 			temp2=0;
 		}
-	while((temp=pread(fd,buffer,strlen(argv[1]),offset))){
-		if(temp<0){
-		printf("Error reading from file: %s\n",strerror(errno));
-		free(addto);
-		free(buffer);
-		return 1;
 	}
-		if(!(strcmp(argv[1],buffer))){
-		fwrite(argv[2],1,strlen(argv[2]),stdout);
-		offset+=strlen(argv[1]);
-	}
-		else{
-		fwrite(buffer,1,1,stdout);
-		offset++;
-	}
-}
+	while(temp);
 	close(fd);
 	free(addto);
 	free(buffer);
+	free(tempchar);
 	return 0;
 }
