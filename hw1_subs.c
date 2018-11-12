@@ -70,16 +70,24 @@ int main(int argc,char** argv){
 		return 1;
 }
 	do{
-		if(temp2)
+		if(temp2){
 			temp=read(fd,buffer,strlen(argv[1]));
-		else
-			temp=read(fd,tempchar,1);
-		if(temp<0){
+			if(temp<0){
 			printf("Error reading from file: %s\n",strerror(errno));
 			free(addto);
 			free(buffer);
 			return 1;
 	}
+		}
+		else{
+			temp=read(fd,tempchar,1);
+			if(temp<0){
+			printf("Error reading from file: %s\n",strerror(errno));
+			free(addto);
+			free(buffer);
+			return 1;
+			}
+		}
 		if(!temp2){
 			stringshift(buffer,tempchar,strlen(argv[1]));
 		}
