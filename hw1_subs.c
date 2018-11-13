@@ -96,7 +96,7 @@ int main(int argc,char** argv){
 			}
 		}
 		if(temp==0)
-			break;
+			continue;
 		if(temp<strlen(argv[1])&&temp2){
 			buffer[temp]='\0';
 		}
