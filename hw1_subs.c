@@ -31,6 +31,7 @@ void concat(char* first,char* second){
 int main(int argc,char** argv){
 	int temp;
 	int temp2=1;
+	int lastread=0;
 	char* addto;
 	int fd=0;
 	char* buffer=(char*)calloc(strlen(argv[1])+1,1);
@@ -83,6 +84,7 @@ int main(int argc,char** argv){
 			}
 			if(temp<strlen(argv[1])){
 			buffer[temp]='\0';
+			continue;
 			}
 		}
 		else{
@@ -96,10 +98,9 @@ int main(int argc,char** argv){
 			}
 		}
 		if(temp==0)
+			if(lastread<strlen(argv[1]) && temp)
+				fwrite(buffer,1,strlen(buffer),stdout);
 			continue;
-		if(temp<strlen(argv[1])&&temp2){
-			buffer[temp]='\0';
-		}
 		if(!temp2){
 			stringshift(buffer,tempchar,strlen(buffer));
 		}
