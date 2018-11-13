@@ -31,7 +31,6 @@ void concat(char* first,char* second){/*code took from exam in Software Project*
 int main(int argc,char** argv){
 	int temp;
 	int temp2=1;
-	int lastread=0;
 	int currentread=0;
 	char* addto;
 	int fd=0;
@@ -75,7 +74,7 @@ int main(int argc,char** argv){
 }
 	do{
 		if(temp2){
-			temp=read(fd,buffer,strlen(argv[1])-currentread);
+			temp=read(fd,buffer+currentread,strlen(argv[1])-currentread);
 			if(temp<0){
 				printf("Error reading from file: %s\n",strerror(errno));
 				free(addto);
@@ -85,7 +84,6 @@ int main(int argc,char** argv){
 			}
 			if(temp<strlen(argv[1])-currentread){
 			currentread+=temp;
-			lastread=temp;
 			continue;
 			}
 		}
@@ -115,7 +113,6 @@ int main(int argc,char** argv){
 			fwrite(buffer,1,1,stdout);
 			temp2=0;
 		}
-		lastread=temp;
 	}
 	while(1);
 	close(fd);
