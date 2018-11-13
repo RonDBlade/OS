@@ -98,10 +98,11 @@ int main(int argc,char** argv){
 				return 1;
 			}
 		}
-		if(temp==0)
+		if(temp==0){
 			if(lastread<strlen(argv[1]) && temp2)
 				fwrite(buffer,1,strlen(buffer),stdout);
 			continue;
+		}
 		if(!temp2){
 			stringshift(buffer,tempchar,strlen(buffer));
 		}
