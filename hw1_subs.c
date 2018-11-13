@@ -15,7 +15,7 @@ void stringshift(char* buffer,char* tempchar,int bufferlen){
 	buffer[bufferlen-1]=tempchar[0];
 }
 
-void concat(char* first,char* second){
+void concat(char* first,char* second){/*code took from exam in Software Project*/
         while(*first!='\0'){
                 first++;
 }
@@ -32,6 +32,7 @@ int main(int argc,char** argv){
 	int temp;
 	int temp2=1;
 	int lastread=0;
+	int currentread=0;
 	char* addto;
 	int fd=0;
 	char* buffer=(char*)calloc(strlen(argv[1])+1,1);
@@ -74,7 +75,7 @@ int main(int argc,char** argv){
 }
 	do{
 		if(temp2){
-			temp=read(fd,buffer,strlen(argv[1]));
+			temp=read(fd,buffer,strlen(argv[1])-currentread);
 			if(temp<0){
 				printf("Error reading from file: %s\n",strerror(errno));
 				free(addto);
@@ -82,8 +83,8 @@ int main(int argc,char** argv){
 				free(tempchar);
 				return 1;
 			}
-			if(temp<strlen(argv[1])){
-			buffer[temp]='\0';
+			if(temp<strlen(argv[1])-currentread){
+			currentread+=temp;
 			lastread=temp;
 			continue;
 			}
@@ -99,10 +100,10 @@ int main(int argc,char** argv){
 			}
 		}
 		if(temp==0){
-			if(lastread<strlen(argv[1]) && temp2)
-				fwrite(buffer,1,strlen(buffer),stdout);
-			continue;
+			fwrite(buffer,1,currentread,stdout);
+			break;
 		}
+		currentread=0;
 		if(!temp2){
 			stringshift(buffer,tempchar,strlen(buffer));
 		}
@@ -116,7 +117,7 @@ int main(int argc,char** argv){
 		}
 		lastread=temp;
 	}
-	while(temp);
+	while(1);
 	close(fd);
 	free(addto);
 	free(buffer);
