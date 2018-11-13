@@ -81,6 +81,9 @@ int main(int argc,char** argv){
 				free(tempchar);
 				return 1;
 			}
+			if(temp<strlen(argv[1])){
+			buffer[temp]='\0';
+			}
 		}
 		else{
 			temp=read(fd,tempchar,1);
@@ -100,7 +103,7 @@ int main(int argc,char** argv){
 		if(!temp2){
 			stringshift(buffer,tempchar,strlen(buffer));
 		}
-	if(!(strcmp(argv[1],buffer))){
+		if(!(strcmp(argv[1],buffer))){
 			fwrite(argv[2],1,strlen(argv[2]),stdout);
 			temp2=1;
 	}
