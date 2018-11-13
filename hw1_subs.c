@@ -84,6 +84,7 @@ int main(int argc,char** argv){
 			}
 			if(temp<strlen(argv[1])){
 			buffer[temp]='\0';
+			lastread=temp;
 			continue;
 			}
 		}
@@ -98,7 +99,7 @@ int main(int argc,char** argv){
 			}
 		}
 		if(temp==0)
-			if(lastread<strlen(argv[1]) && temp)
+			if(lastread<strlen(argv[1]) && temp2)
 				fwrite(buffer,1,strlen(buffer),stdout);
 			continue;
 		if(!temp2){
@@ -112,6 +113,7 @@ int main(int argc,char** argv){
 			fwrite(buffer,1,1,stdout);
 			temp2=0;
 		}
+		lastread=temp;
 	}
 	while(temp);
 	close(fd);
