@@ -4,28 +4,49 @@
 #include <string.h>
 #include <errno.h>
 
+
+/*if the new process should be a background process,the last argument of arglist(except
+the NULL element on the actual last place) is &,then it should be ran in the background*/
+int check_background(int count,char** arglist){
+	if(strlen(arglist[count-1])==1 && arglist[count-1]=='&')
+		return 1;
+	return 0;
+}
+
+
 // arglist - a list of char* arguments (words) provided by the user
 // it contains count+1 items, where the last item (arglist[count]) and *only* the last is NULL
 // RETURNS - 1 if should cotinue, 0 otherwise
 int process_arglist(int count, char** arglist){
 	int pid=fork();
-	if(pid){
-		
+	if(pid){/*parent,the shell*/
+		sigaction(2,sig_ignore_int,SIGINT);
+		if(!check_background(count,arglist))/*check if child process is not background*/
+			wait(NULL);
+		else
+
+		sigaction(2,SIGINT,sig_ignore_int);
+		return 1;
 	}
 	else
+		while(1){
+	
+		}
 		return 1;
 }
 
 // prepare and finalize calls for initialization and destruction of anything required
 int prepare(void){
-	signal(SIGUSR1,SIGINT);/*maybe change all of the signal to sigaction*/
-	signal(SIGINT,SIG_IGN);
+	struct sigaction sig_ignore_int={
+		.sa_handler = SIG_DFL,
+		.sa_flags = 
+	}
 
 }
 
 
 int finalize(void){
-	signal(SIGINT,SIGUSR1);
+	
 	
 }
 
