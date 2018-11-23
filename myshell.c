@@ -11,9 +11,9 @@
 /*if the new process should be a background process,the last argument of arglist(except
 the NULL element on the actual last place) is &,then it should be ran in the background*/
 int check_background(int count,char** arglist){
-	if(strlen(arglist[count-1])==1 && arglist[count-1][0]=='&')
-		printf("background\n");
+	if(strlen(arglist[count-1])==1 && arglist[count-1][0]=='&'){
 		return 1;
+	}
 	return 0;
 }
 
@@ -24,7 +24,9 @@ int check_pipe(int count,char** arglist){
 				after it,we can start at 1 and end at count-2*/
 		if(strlen(arglist[i])==1 && arglist[i][0]=='|')
 			return i;
+			printf("%d\n",i);
 	}
+	printf("dddd\n");
 	return 0;
 }
 
@@ -56,10 +58,12 @@ int process_arglist(int count, char** arglist){
 				}
 			/*return the handling of sigint to be normal for the foreground*/
 			if(!check_pipe(count,arglist)){/*no pipe,only one process to create*/
+				printf("xd\n");
 				if(execvp(arglist[0],arglist)==-1){
 						fprintf(stderr,"execvp failed: %s\n",strerror(errno));
 						exit(1);
 						}
+				printf("xd\n");
 				return 1;
 			}
 			else{/*has a pipe symbol,we need to seperate the arglist array and
