@@ -60,18 +60,18 @@ int process_arglist(int count, char** arglist){
 						fprintf(stderr,"execvp failed: %s\n",strerror(errno));
 						exit(1);
 						}
-			return 1;
+				return 1;
 			}
 			else{/*has a pipe symbol,we need to seperate the arglist array and
 			set up the output of the first part to be input of second part*/
 
 			}
-	}
-	else{/*background*/
-	
-	}
+		}
+		else{/*background*/
+			return 1;
+		}
 
-
+	}
 		return 1;
 }
 
