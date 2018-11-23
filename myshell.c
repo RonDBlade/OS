@@ -3,13 +3,28 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-
+#include <signal.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 /*if the new process should be a background process,the last argument of arglist(except
 the NULL element on the actual last place) is &,then it should be ran in the background*/
 int check_background(int count,char** arglist){
-	if(strlen(arglist[count-1])==1 && arglist[count-1]=='&')
+	if(strlen(arglist[count-1])==1 && arglist[count-1][0]=='&')
+		printf("background\n");
 		return 1;
+	return 0;
+}
+
+/*if there is | it will return its position,else will return 0*/
+int check_pipe(int count,char** arglist){
+	int i;
+	for(i=1;i<count-1;i++){/*assuming if there is a pipe it has something before and
+				after it,we can start at 1 and end at count-2*/
+		if(strlen(arglist[i])==1 && arglist[i][0]=='|')
+			return i;
+	}
 	return 0;
 }
 
@@ -19,35 +34,64 @@ int check_background(int count,char** arglist){
 // RETURNS - 1 if should cotinue, 0 otherwise
 int process_arglist(int count, char** arglist){
 	int pid=fork();
+	if(pid<0){/*fork failed-error in parent*/
+		fprintf(stderr,"fork failed: %s\n",strerror(errno));
+		return 0;
+	}
 	if(pid){/*parent,the shell*/
-		sigaction(2,sig_ignore_int,SIGINT);
-		if(!check_background(count,arglist))/*check if child process is not background*/
-			wait(NULL);
-		else
-
-		sigaction(2,SIGINT,sig_ignore_int);
+		if(!check_background(count,arglist)){/*check if child process is not background*/
+			wait(NULL);	/*if foreground,need to wait for it*/
+		}
+		else{}/*if background,don't need to wait for it*/
 		return 1;
 	}
-	else
-		while(1){
+	else{/*child,foreground or background*/
+		if(!check_background(count,arglist)){/*foreground*/
+			struct sigaction sig_int_dfl={
+			.sa_handler=SIG_DFL
+			};
+			if(sigaction(SIGINT,&sig_int_dfl,NULL)==-1){
+				fprintf(stderr,"sigaction failed: %s\n",strerror(errno));
+				exit(1);
+				}
+			/*return the handling of sigint to be normal for the foreground*/
+			if(!check_pipe(count,arglist)){/*no pipe,only one process to create*/
+				if(execvp(arglist[0],arglist)==-1){
+						fprintf(stderr,"execvp failed: %s\n",strerror(errno));
+						exit(1);
+						}
+			return 1;
+			}
+			else{/*has a pipe symbol,we need to seperate the arglist array and
+			set up the output of the first part to be input of second part*/
+
+			}
+	}
+	else{/*background*/
 	
-		}
+	}
+
+
 		return 1;
 }
 
 // prepare and finalize calls for initialization and destruction of anything required
 int prepare(void){
 	struct sigaction sig_ignore_int={
-		.sa_handler = SIG_DFL,
-		.sa_flags = 
-	}
-
+		.sa_handler = SIG_IGN,
+		.sa_flags = SA_RESTART,
+	};
+	if(sigaction(SIGINT,&sig_ignore_int,NULL)==-1){/*make parent ignore sigint*/
+		fprintf(stderr,"sigaction failed: %s\n",strerror(errno));
+		return 1;
+		}
+	return 0;
 }
 
 
 int finalize(void){
 	
-	
+	return 0;
 }
 
 int main(void)
