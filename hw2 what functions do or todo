@@ -1,7 +1,7 @@
 1.implement the pipe part of foreground programs
 2.background are still working when ./myshell is closed,is that ok?
 4.instead of point 3(below),after doing background and opening foreground,trying to do foreground again doesnt work until all background
-are terminated
+are terminated-WAITPID FIXES IT BUT CAN IT BE USED????
 
 
 
