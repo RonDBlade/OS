@@ -1,9 +1,2 @@
-WHAT THE FUNCTIONS DO
-prepare-1.initializing anything that you need
-        2.MAKES SO THAT THE MAIN PROCESS AND CHILD PROCESSES OF IT IGNORE THE INTERRUPT SIGNAL (SIGINT)
-        
-       
-finalize-1. free anything that you need other than arglist that the skeleton already creates
-         2.return the signal to normal
-         
-process_arglist-
+1.implement the pipe part of foreground programs
+2.background are still working when ./myshell is closed,is that ok?
