@@ -1,5 +1,6 @@
 1.implement the pipe part of foreground programs
 2.background are still working when ./myshell is closed,is that ok?
+4.instead of point 3(below),after doing background and opening foreground,trying to do foreground again doesnt work
 (NOT ALWAYS???)3.doing foreground,trying to do another foreground(not working which should not work),closing foreground with ctrl+c,
 opening background makes everything stuck.in the start other programs work ok but sometimes after it gets stuck and output/program is kept
 buffered until the background is killed?????
