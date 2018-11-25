@@ -1,3 +1,2 @@
-1.implement the pipe part of foreground programs
+1.use dup2 instead of dup
 2.background are still working when ./myshell is closed,is that ok?
-3.use arglist for pipe instead of callocing two new arrays
