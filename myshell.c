@@ -22,11 +22,10 @@ int check_pipe(int count,char** arglist){
 	int i;
 	for(i=1;i<count-1;i++){/*assuming if there is a pipe it has something before and
 				after it,we can start at 1 and end at count-2*/
-		if(strlen(arglist[i])==1 && arglist[i][0]=='|')
+		if(strlen(arglist[i])==1 && arglist[i][0]=='|'){
 			return i;
-			printf("%d\n",i);
+		}
 	}
-	printf("dddd\n");
 	return 0;
 }
 
@@ -35,48 +34,124 @@ int check_pipe(int count,char** arglist){
 // it contains count+1 items, where the last item (arglist[count]) and *only* the last is NULL
 // RETURNS - 1 if should cotinue, 0 otherwise
 int process_arglist(int count, char** arglist){
+	int location,i;
 	int pid=fork();
+	int terminated;
+	struct sigaction sigdfl={
+		.sa_handler=SIG_DFL
+	};
 	if(pid<0){/*fork failed-error in parent*/
 		fprintf(stderr,"fork failed: %s\n",strerror(errno));
 		return 0;
 	}
 	if(pid){/*parent,the shell*/
 		if(!check_background(count,arglist)){/*check if child process is not background*/
-			wait(NULL);	/*if foreground,need to wait for it*/
+				if(sigaction(SIGCHLD,&sigdfl,NULL)==-1){/*stop ignoring sigchld*/
+					fprintf(stderr,"sigaction failed: %s\n",strerror(errno));
+					return 0;
+				}
+				do{terminated=wait(NULL);}/*if foreground,need to wait for it*/
+				while(terminated!=pid);/*sigchld can be from background,need to ignore*/
+				struct sigaction sig_no_wait_chld={
+					.sa_handler=SIG_DFL,
+					.sa_flags=SA_NOCLDWAIT,
+				};
+				if(sigaction(SIGCHLD,&sig_no_wait_chld,NULL)==-1){
+					fprintf(stderr,"sigaction failed: %s\n",strerror(errno));
+					return 0;
+				}
 		}
-		else{}/*if background,don't need to wait for it*/
+		/*if background,don't need to wait for it*/
 		return 1;
 	}
 	else{/*child,foreground or background*/
 		if(!check_background(count,arglist)){/*foreground*/
-			struct sigaction sig_int_dfl={
-			.sa_handler=SIG_DFL
-			};
-			if(sigaction(SIGINT,&sig_int_dfl,NULL)==-1){
+			if(sigaction(SIGINT,&sigdfl,NULL)==-1){
 				fprintf(stderr,"sigaction failed: %s\n",strerror(errno));
 				exit(1);
 				}
 			/*return the handling of sigint to be normal for the foreground*/
-			if(!check_pipe(count,arglist)){/*no pipe,only one process to create*/
-				printf("xd\n");
+			location=check_pipe(count,arglist);
+			if(!location){/*no pipe,only one process to create*/
 				if(execvp(arglist[0],arglist)==-1){
 						fprintf(stderr,"execvp failed: %s\n",strerror(errno));
 						exit(1);
 						}
-				printf("xd\n");
-				return 1;
+				exit(0);
 			}
 			else{/*has a pipe symbol,we need to seperate the arglist array and
-			set up the output of the first part to be input of second part*/
-
+						set up the output of the first part to be input of second part*/
+				int pipefd[2];
+				int cpid;
+				arglist[location]=NULL;
+				if(pipe(pipefd)==-1){
+					fprintf(stderr,"pipe failed: %s\n",strerror(errno));
+					exit(1);
+				}
+				cpid=fork();/*from stackoverflow:Using pipes in execvp,stdin
+						and stdout redirection*/
+				if(cpid==-1){
+					fprintf(stderr,"fork failed: %s\n",strerror(errno));
+					exit(1);
+				}
+				if(cpid==0){/*parent,the input*/
+					fclose(stdout);
+					if(dup2(pipefd[1],1)==-1){/*closing stdout so that the stdout
+					of this child will be the input of the 2nd part of pipe*/
+						fprintf(stderr,"dup2 failed: %s\n",strerror(errno));
+						exit(1);
+					}
+					close(pipefd[0]);
+					close(pipefd[1]);
+					if(execvp(arglist[0],arglist)==-1){
+						fprintf(stderr,"execvp failed: %s\n",strerror(errno));
+						exit(1);
+					}
+				}
+				for(i=location+1;i<count;i++){
+					arglist[i-location-1]=arglist[i];
+				}
+				arglist[count-location-1]=NULL;
+				cpid=fork();
+				if(cpid<0){
+					fprintf(stderr,"fork failed: %s\n",strerror(errno));
+					exit(1);
+				}
+				if(cpid==0){
+					fclose(stdin);
+					if(dup2(pipefd[0],0)){/*closing the stdin so that the stdin for this child
+						will be from the 1st part of the pipe*/
+						fprintf(stderr,"dup2 failed: %s\n",strerror(errno));
+						exit(1);
+					}
+					close(pipefd[1]);
+					close(pipefd[0]);
+					if(execvp(arglist[0],arglist)==-1){
+						fprintf(stderr,"execvp failed: %s\n",strerror(errno));
+						exit(1);
+					}
+				}
+				close(pipefd[0]);
+				close(pipefd[1]);
+				wait(NULL);/*sigchld can only get to the child from its children*/
+				wait(NULL);
+				exit(0);
 			}
+
 		}
+
 		else{/*background*/
-			return 1;
+			arglist[count-1]=NULL;
+			count--;
+			if(execvp(arglist[0],arglist)==-1){
+				fprintf(stderr,"execvp failed: %s\n",strerror(errno));
+				exit(1);
+			}
+			exit(0);
 		}
 
 	}
-		return 1;
+		return 1;/*not supposed to get here*/
 }
 
 // prepare and finalize calls for initialization and destruction of anything required
@@ -86,6 +161,14 @@ int prepare(void){
 		.sa_flags = SA_RESTART,
 	};
 	if(sigaction(SIGINT,&sig_ignore_int,NULL)==-1){/*make parent ignore sigint*/
+		fprintf(stderr,"sigaction failed: %s\n",strerror(errno));
+		return 1;
+		}
+	struct sigaction sig_no_wait_chld={
+		.sa_handler = SIG_DFL,
+		.sa_flags = SA_NOCLDWAIT,
+		};
+	if(sigaction(SIGCHLD,&sig_no_wait_chld,NULL)==-1){
 		fprintf(stderr,"sigaction failed: %s\n",strerror(errno));
 		return 1;
 		}
