@@ -11,7 +11,7 @@
 /*if the new process should be a background process,the last argument of arglist(except
 the NULL element on the actual last place) is &,then it should be ran in the background*/
 int check_background(int count,char** arglist){
-	if(strlen(arglist[count-1])==1 && arglist[count-1][0]=='&'){
+	if(strlen(arglist[count-1])==1 && arglist[count-1][0]=='&'){/*length is 1 and first position is &,means its only &*/
 		return 1;
 	}
 	return 0;
@@ -22,7 +22,7 @@ int check_pipe(int count,char** arglist){
 	int i;
 	for(i=1;i<count-1;i++){/*assuming if there is a pipe it has something before and
 				after it,we can start at 1 and end at count-2*/
-		if(strlen(arglist[i])==1 && arglist[i][0]=='|'){
+		if(strlen(arglist[i])==1 && arglist[i][0]=='|'){/*length is 1 and in the first position it has |,means its only |*/
 			return i;
 		}
 	}
@@ -37,7 +37,7 @@ int process_arglist(int count, char** arglist){
 	int location,i;
 	int pid=fork();
 	int terminated;
-	struct sigaction sigdfl={
+	struct sigaction sigdfl={/*the signal will be handled the same it is handled*/
 		.sa_handler=SIG_DFL
 	};
 	if(pid<0){/*fork failed-error in parent*/
@@ -46,13 +46,14 @@ int process_arglist(int count, char** arglist){
 	}
 	if(pid){/*parent,the shell*/
 		if(!check_background(count,arglist)){/*check if child process is not background*/
-				if(sigaction(SIGCHLD,&sigdfl,NULL)==-1){/*stop ignoring sigchld*/
+				if(sigaction(SIGCHLD,&sigdfl,NULL)==-1){/*stop ignoring sigchld,the normal action we have for it*/
 					fprintf(stderr,"sigaction failed: %s\n",strerror(errno));
 					return 0;
 				}
 				do{terminated=wait(NULL);}/*if foreground,need to wait for it*/
 				while(terminated!=pid);/*sigchld can be from background,need to ignore*/
-				struct sigaction sig_no_wait_chld={
+				struct sigaction sig_no_wait_chld={/*makes so that background processes that finish do not stay in the system
+				as zombies,but are removed*/
 					.sa_handler=SIG_DFL,
 					.sa_flags=SA_NOCLDWAIT,
 				};
@@ -66,18 +67,18 @@ int process_arglist(int count, char** arglist){
 	}
 	else{/*child,foreground or background*/
 		if(!check_background(count,arglist)){/*foreground*/
-			if(sigaction(SIGINT,&sigdfl,NULL)==-1){
+			if(sigaction(SIGINT,&sigdfl,NULL)==-1){/*we stop ignoring sigint*/
 				fprintf(stderr,"sigaction failed: %s\n",strerror(errno));
 				exit(1);
 				}
 			/*return the handling of sigint to be normal for the foreground*/
-			location=check_pipe(count,arglist);
+			location=check_pipe(count,arglist);/*location has the position '|' is in,and 0 if it is not in the arglist array*/
 			if(!location){/*no pipe,only one process to create*/
 				if(execvp(arglist[0],arglist)==-1){
 						fprintf(stderr,"execvp failed: %s\n",strerror(errno));
 						exit(1);
 						}
-				exit(0);
+				exit(0);/*should not get here*/
 			}
 			else{/*has a pipe symbol,we need to seperate the arglist array and
 						set up the output of the first part to be input of second part*/
