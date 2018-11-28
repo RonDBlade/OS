@@ -50,20 +50,20 @@ int process_arglist(int count, char** arglist){
 					fprintf(stderr,"sigaction failed: %s\n",strerror(errno));
 					return 0;
 				}
-				do{terminated=wait(NULL);}/*if foreground,need to wait for it*/
+				do{terminated=wait(NULL);}/*if foreground,need to wait for it,wait returns the pid as long as sigchld is handled defaultly*/
 				while(terminated!=pid);/*sigchld can be from background,need to ignore*/
 				struct sigaction sig_no_wait_chld={/*makes so that background processes that finish do not stay in the system
-				as zombies,but are removed*/
+				as zombies,but are removed,no need for wait,and it won't return the pid,it returns -1*/
 					.sa_handler=SIG_DFL,
 					.sa_flags=SA_NOCLDWAIT,
 				};
-				if(sigaction(SIGCHLD,&sig_no_wait_chld,NULL)==-1){
+				if(sigaction(SIGCHLD,&sig_no_wait_chld,NULL)==-1){/*we do this since we finished waiting for the foreground,and we 
+					don't want to wait for the background processes*/
 					fprintf(stderr,"sigaction failed: %s\n",strerror(errno));
 					return 0;
 				}
 		}
-		/*if background,don't need to wait for it*/
-		return 1;
+		return 1;/*parent should return 1 when everything is working fine*/
 	}
 	else{/*child,foreground or background*/
 		if(!check_background(count,arglist)){/*foreground*/
@@ -85,7 +85,7 @@ int process_arglist(int count, char** arglist){
 				int pipefd[2];
 				int cpid;
 				arglist[location]=NULL;
-				if(pipe(pipefd)==-1){
+				if(pipe(pipefd)==-1){/*we want to connect the input of the 2nd process to the output of the 1st process*/
 					fprintf(stderr,"pipe failed: %s\n",strerror(errno));
 					exit(1);
 				}
@@ -95,7 +95,7 @@ int process_arglist(int count, char** arglist){
 					fprintf(stderr,"fork failed: %s\n",strerror(errno));
 					exit(1);
 				}
-				if(cpid==0){/*parent,the input*/
+				if(cpid==0){/*the input,the process from the 1st part of the arglist*/
 					fclose(stdout);
 					if(dup2(pipefd[1],1)==-1){/*closing stdout so that the stdout
 					of this child will be the input of the 2nd part of pipe*/
@@ -103,14 +103,16 @@ int process_arglist(int count, char** arglist){
 						exit(1);
 					}
 					close(pipefd[0]);
-					close(pipefd[1]);
+					close(pipefd[1]);/*dup will handle the information being forwarded to the 2nd process,closing so
+					it will get EOF in the end*/
 					if(execvp(arglist[0],arglist)==-1){
 						fprintf(stderr,"execvp failed: %s\n",strerror(errno));
 						exit(1);
 					}
 				}
 				for(i=location+1;i<count;i++){
-					arglist[i-location-1]=arglist[i];
+					arglist[i-location-1]=arglist[i];/*setting the arglist so that the items we need to use now
+					will be in the start and then putting NULL in the last position for execvp*/
 				}
 				arglist[count-location-1]=NULL;
 				cpid=fork();
@@ -118,7 +120,7 @@ int process_arglist(int count, char** arglist){
 					fprintf(stderr,"fork failed: %s\n",strerror(errno));
 					exit(1);
 				}
-				if(cpid==0){
+				if(cpid==0){/*the 2nd process,the new output*/
 					fclose(stdin);
 					if(dup2(pipefd[0],0)){/*closing the stdin so that the stdin for this child
 						will be from the 1st part of the pipe*/
@@ -126,24 +128,25 @@ int process_arglist(int count, char** arglist){
 						exit(1);
 					}
 					close(pipefd[1]);
-					close(pipefd[0]);
+					close(pipefd[0]);/*dup will handle the information be received from the 1st,closing so we won't have
+					things we don't need still open*/
 					if(execvp(arglist[0],arglist)==-1){
 						fprintf(stderr,"execvp failed: %s\n",strerror(errno));
 						exit(1);
 					}
 				}
 				close(pipefd[0]);
-				close(pipefd[1]);
-				wait(NULL);/*sigchld can only get to the child from its children*/
+				close(pipefd[1]);/*closing the pipe for the parent,he doesn't use it at all*/
 				wait(NULL);
-				exit(0);
+				wait(NULL);/*wait for both the children*/
+				exit(0);/*done*/
 			}
 
 		}
 
-		else{/*background*/
+		else{/*background,we just want to run it*/
 			arglist[count-1]=NULL;
-			count--;
+			count--;/*in count-1 we have '&',should not be sent to execvp,we don't really need count-- though,just for correctness*/
 			if(execvp(arglist[0],arglist)==-1){
 				fprintf(stderr,"execvp failed: %s\n",strerror(errno));
 				exit(1);
@@ -169,7 +172,8 @@ int prepare(void){
 		.sa_handler = SIG_DFL,
 		.sa_flags = SA_NOCLDWAIT,
 		};
-	if(sigaction(SIGCHLD,&sig_no_wait_chld,NULL)==-1){
+	if(sigaction(SIGCHLD,&sig_no_wait_chld,NULL)==-1){/*makes background processes not become zombies when they finish as we don't
+		wait() for them*/
 		fprintf(stderr,"sigaction failed: %s\n",strerror(errno));
 		return 1;
 		}
