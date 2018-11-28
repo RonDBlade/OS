@@ -181,7 +181,7 @@ int prepare(void){
 }
 
 
-int finalize(void){
+int finalize(void){/*don't need to do anything*/
 	
 	return 0;
 }
