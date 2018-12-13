@@ -33,12 +33,16 @@ static ssize_t device_write(struct file* file, const char __user* buffer,
 
 }
 
+static long device_ioctl(struct file* file,unsigned int fd,unsigned long request){
+
+}
+
 
 struct file_operations Fops={
 	.read = device_read,
 	.write = device_write,
 	.open = device_open,
-	.
+	.ioctl = device_ioctl,
 
 };
 
