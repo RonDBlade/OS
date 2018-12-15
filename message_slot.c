@@ -29,6 +29,7 @@ static int channel_amount;/*total amount of open channels*/
 static int* channel_list;/*show where channels are located in the slots double array
 eg: [i] contains 30 means channel 30 is in [i*128]-[i*128+127] in slots*/
 static unsigned long channel_location;/*where the channel starts on the slots array*/
+static int initiated=0;/*to see if we allocated mem*/
 
 static int device_open(struct inode* inode,struct file* file){/*creates device.if needed,
 		creates data structure for thespecific message slot that is being opened*/
@@ -43,6 +44,7 @@ int find_size(char* array,unsigned long start){/*return length of string in chan
 		if(array[start+i]!='\0')
 			size++;
 	}
+	printk("size is %d\n",size);
 	return size;
 }
 
@@ -50,16 +52,17 @@ static ssize_t device_read(struct file* file,char __user* buffer,
 			size_t length,loff_t* offset){/*read data fro message slot to user*/
 	int i,size;
 	printk("invoking device read\n");
-	/*if(!channel_num)
-		return -EINVAL;*/
+	if(!channel_num)
+		return -EINVAL;
 	if(slots[0]=='\0')/*channel has no message*/
 		return -EWOULDBLOCK;
 	size=find_size(slots,channel_location*128);
-	if(size>length)
+	if(size>length)/*shouldn't happen,in usercode we set length to 128*/
 		return -ENOSPC;
 	for(i=0;i<size;i++){
 		if(put_user(slots[i+channel_location*MAX_LEN],&buffer[i])!=0)
 			return -EFAULT;
+		printk("%c\n",slots[i+channel_location*MAX_LEN]);
 	}
 	return 0;
 }
@@ -75,6 +78,7 @@ static ssize_t device_write(struct file* file, const char __user* buffer,
 	for(i=0;i<length;i++){
 		if(get_user(slots[i+channel_location*MAX_LEN],&buffer[i])!=0)/*error happened in get_user*/
 			return -EFAULT;
+		printk("%c\n",slots[i+channel_location*MAX_LEN]);
 	}
 	if(length<128)
 		slots[channel_location*128+length]='\0';
@@ -87,7 +91,14 @@ int find_channel(unsigned long channel_id){
 		if(channel_list[i]==channel_id)
 			return i;/*is an open channel on the message slot,return location*/
 	}
-	return 0;/*not an open channel on the message slot*/
+	return -1;/*not an open channel on the message slot*/
+}
+
+void init_mem(char* array,int start,int end){/*zero-out the added memory*/
+	int i;
+	for(i=start;i<end;i++){
+		array[i]='\0';
+	}
 }
 
 static long device_ioctl(struct file* file,unsigned int ioctl_command_id,unsigned long channel_id){
@@ -100,9 +111,11 @@ static long device_ioctl(struct file* file,unsigned int ioctl_command_id,unsigne
 	printk("changing channel\n");
 	channel_num=channel_id;
 	channel_location=find_channel(channel_num);
-	if(!channel_location){/*channel wasn't found,need to dynamically allocate
+	if(channel_location==-1){/*channel wasn't found,need to dynamically allocate
 			more space for the channels*/
+		channel_location=0;
 		channel_amount++;
+		initiated=1;
 		if(channel_amount==1){
 			slots=(char*)kmalloc(channel_amount*MAX_LEN*sizeof(char),GFP_KERNEL);
 			if(slots==NULL)
@@ -120,7 +133,9 @@ static long device_ioctl(struct file* file,unsigned int ioctl_command_id,unsigne
 				return -1;
 		}
 	channel_list[channel_amount-1]=channel_num;
+	init_mem(slots,(channel_amount-1)*MAX_LEN*sizeof(char),channel_amount*MAX_LEN*sizeof(char));
 	}
+	printk("channel num is %ld,channel location is %ld\n",channel_num,channel_location);
 	return 0;
 }
 
@@ -153,6 +168,10 @@ static int __init slot_init(void){/*create the module*/
 
 static void __exit slot_cleanup(void){/*remove the module*/
 	unregister_chrdev(majorNumber,DEVICE_RANGE_NAME);
+	if(initiated){
+		kfree(channel_list);
+		kfree(slots);
+	}
 	printk("removing module\n");
 }
 
