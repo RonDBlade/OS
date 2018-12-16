@@ -21,20 +21,24 @@ MODULE_LICENSE("GPL");
 /*i thought we need to #define DEVICE_FILE_NAME in the code too,but it is done in the bash,
 different filename for each message_slot*/
 #define MAX_LEN 128
+#define MAX_MINORS 256
 
 static int majorNumber;
+static int current_minor;
 static char *slots;/*the message slots of the device*/
 static unsigned long channel_num;/*ioctl sets what channel we want to read/write from/to*/
-static int channel_amount;/*total amount of open channels*/
+static int channel_amount[256];/*total amount of open channels for this minor*/
 static int* channel_list;/*show where channels are located in the slots double array
 eg: [i] contains 30 means channel 30 is in [i*128]-[i*128+127] in slots*/
 static unsigned long channel_location;/*where the channel starts on the slots array*/
-static int initiated=0;/*to see if we allocated mem*/
+static int initiated=0;/*to see if we allocated mem at all*/
+static int initiated_minor[MAX_MINORS];/*to see if we allocated mem for specific minor */
+
 
 static int device_open(struct inode* inode,struct file* file){/*creates device.if needed,
 		creates data structure for thespecific message slot that is being opened*/
 	printk("invoking device open\n");
-
+	current_minor=iminor(inode);
 	return 0; /*success*/
 }
 
@@ -113,10 +117,10 @@ static long device_ioctl(struct file* file,unsigned int ioctl_command_id,unsigne
 	channel_location=find_channel(channel_num);
 	if(channel_location==-1){/*channel wasn't found,need to dynamically allocate
 			more space for the channels*/
-		channel_location=0;
-		channel_amount++;
+		channel_amount[current_minor]++;
+		channel_location=(channel_amount-1)*MAX_LEN
 		initiated=1;
-		if(channel_amount==1){
+		if(channel_amount[current_minor]==1){
 			slots=(char*)kmalloc(channel_amount*MAX_LEN*sizeof(char),GFP_KERNEL);
 			if(slots==NULL)
 				return -1;
@@ -167,10 +171,13 @@ static int __init slot_init(void){/*create the module*/
 }
 
 static void __exit slot_cleanup(void){/*remove the module*/
+	int i;
 	unregister_chrdev(majorNumber,DEVICE_RANGE_NAME);
-	if(initiated){
-		kfree(channel_list);
-		kfree(slots);
+	for(i=0;i<MAX_MINORS;i++){
+		if(initiated_minor[i]){/*NEED TO CHANGE-WE HAVE MANY MINORS NOW*/
+			kfree(channel_list);
+			kfree(slots);
+		}
 	}
 	printk("removing module\n");
 }
