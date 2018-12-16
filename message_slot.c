@@ -23,7 +23,6 @@ different filename for each message_slot*/
 #define MAX_LEN 128
 #define MAX_MINORS 256
 
-static int majorNumber;
 static int current_minor;
 static char **slots;/*the message slots of the device*/
 static unsigned long channel_num;/*ioctl sets what channel we want to read/write from/to*/
@@ -169,12 +168,13 @@ struct file_operations Fops={
 
 
 static int __init slot_init(void){/*create the module*/
-	majorNumber = register_chrdev(0,DEVICE_RANGE_NAME,&Fops);/*change nop to &Fops*/
-	if(majorNumber<0){/*register_chrdev failed*/
-		printk(KERN_ALERT "%s registration failed for %d\n",DEVICE_RANGE_NAME,majorNumber);
-		return majorNumber;
+	int temp;
+	temp = register_chrdev(MAJOR_NUM,DEVICE_RANGE_NAME,&Fops);/*change nop to &Fops*/
+	if(temp<0){/*register_chrdev failed*/
+		printk(KERN_ALERT "%s registration failed for %d\n",DEVICE_RANGE_NAME,temp);
+		return temp;
 	}
-	printk(KERN_INFO "message_slot: registered major number %d\n",majorNumber);
+	printk(KERN_INFO "message_slot: registered major number %d\n",MAJOR_NUM);
 
 
 	return 0;
@@ -182,7 +182,7 @@ static int __init slot_init(void){/*create the module*/
 
 static void __exit slot_cleanup(void){/*remove the module*/
 	int i;
-	unregister_chrdev(majorNumber,DEVICE_RANGE_NAME);
+	unregister_chrdev(MAJOR_NUM,DEVICE_RANGE_NAME);
 	for(i=0;i<MAX_MINORS;i++){
 		if(initiated_minor[i]){/*if we allocated space for a minor,we need to free it.*/
 			kfree(channel_list[i]);
