@@ -25,10 +25,10 @@ different filename for each message_slot*/
 
 static int majorNumber;
 static int current_minor;
-static char *slots;/*the message slots of the device*/
+static char **slots;/*the message slots of the device*/
 static unsigned long channel_num;/*ioctl sets what channel we want to read/write from/to*/
-static int channel_amount[256];/*total amount of open channels for this minor*/
-static int* channel_list;/*show where channels are located in the slots double array
+static int channel_amount[MAX_MINOR];/*total amount of open channels for each minor*/
+static int** channel_list;/*show where channels are located in the slots double array
 eg: [i] contains 30 means channel 30 is in [i*128]-[i*128+127] in slots*/
 static unsigned long channel_location;/*where the channel starts on the slots array*/
 static int initiated=0;/*to see if we allocated mem at all*/
@@ -39,6 +39,16 @@ static int device_open(struct inode* inode,struct file* file){/*creates device.i
 		creates data structure for thespecific message slot that is being opened*/
 	printk("invoking device open\n");
 	current_minor=iminor(inode);
+	if(initiated==0){
+		initiated=1;
+		channel_list=(int**)kmalloc(MAX_MINORS*sizeof(int*),GFP_KERNEL);/*initialize list of initialized channels for each minor*/
+		if(channel_list==NULL)
+			return -1;
+		slots=(char**)kmalloc(MAX_MINORS*MAX_LEN*sizeof(char),GFP_KERNEL);/*128*sizeof(char)=max size of string in the slot
+					initialize space for channels to be initialized to,for each minor*/
+		if(slots==NULL)
+			return -1;
+	}
 	return 0; /*success*/
 }
 
@@ -58,15 +68,15 @@ static ssize_t device_read(struct file* file,char __user* buffer,
 	printk("invoking device read\n");
 	if(!channel_num)
 		return -EINVAL;
-	if(slots[0]=='\0')/*channel has no message*/
+	if(slots[current_minor][channel_location*MAX_LEN]=='\0')/*channel has no message*/
 		return -EWOULDBLOCK;
-	size=find_size(slots,channel_location*128);
+	size=find_size(slots[current_minor],channel_location*MAX_LEN);
 	if(size>length)/*shouldn't happen,in usercode we set length to 128*/
 		return -ENOSPC;
 	for(i=0;i<size;i++){
-		if(put_user(slots[i+channel_location*MAX_LEN],&buffer[i])!=0)
+		if(put_user(slots[current_minor][i+channel_location*MAX_LEN],&buffer[i])!=0)
 			return -EFAULT;
-		printk("%c\n",slots[i+channel_location*MAX_LEN]);
+		printk("%c\n",slots[current_minor][i+channel_location*MAX_LEN]);
 	}
 	return 0;
 }
@@ -75,24 +85,24 @@ static ssize_t device_write(struct file* file, const char __user* buffer,
 			size_t length,loff_t* offset){/*write data to message slot from user*/
 	int i;
 	printk("invoking device write\n");
-	if(!channel_num)
+	if(!channel_num)/*shouldn't happen,we do ioctl every time*/
 		return -EINVAL;
 	if(length==0 || length>MAX_LEN)/*length isn't correct*/
 		return -EMSGSIZE;
 	for(i=0;i<length;i++){
-		if(get_user(slots[i+channel_location*MAX_LEN],&buffer[i])!=0)/*error happened in get_user*/
+		if(get_user(slots[current_minor][i+channel_location*MAX_LEN],&buffer[i])!=0)/*error happened in get_user*/
 			return -EFAULT;
-		printk("%c\n",slots[i+channel_location*MAX_LEN]);
+		printk("%c\n",slots[current_minor][i+channel_location*MAX_LEN]);
 	}
-	if(length<128)
-		slots[channel_location*128+length]='\0';
+	if(length<MAX_LEN)
+		slots[current_minor][channel_location*MAX_LEN+length]='\0';
 	return length;
 }
 
 int find_channel(unsigned long channel_id){
 	int i;
-	for(i=0;i<channel_amount;i++){
-		if(channel_list[i]==channel_id)
+	for(i=0;i<channel_amount[current_minor];i++){
+		if(channel_list[current_minor][i]==channel_id)
 			return i;/*is an open channel on the message slot,return location*/
 	}
 	return -1;/*not an open channel on the message slot*/
@@ -118,26 +128,26 @@ static long device_ioctl(struct file* file,unsigned int ioctl_command_id,unsigne
 	if(channel_location==-1){/*channel wasn't found,need to dynamically allocate
 			more space for the channels*/
 		channel_amount[current_minor]++;
-		channel_location=(channel_amount-1)*MAX_LEN
-		initiated=1;
+		channel_location=(channel_amount[current_minor]-1)*MAX_LEN;
 		if(channel_amount[current_minor]==1){
-			slots=(char*)kmalloc(channel_amount*MAX_LEN*sizeof(char),GFP_KERNEL);
-			if(slots==NULL)
+			initiated_minor[current_minor]=1;
+			slots[current_minor]=(char*)kmalloc(channel_amount*MAX_LEN*sizeof(char),GFP_KERNEL);
+			if(slots[current_minor]==NULL)
 				return -1;
-			channel_list=(int*)kmalloc(channel_amount*sizeof(int),GFP_KERNEL);
-			if(channel_list==NULL)
+			channel_list[current_minor]=(int*)kmalloc(channel_amount*sizeof(int),GFP_KERNEL);
+			if(channel_list[current_minor]==NULL)
 				return -1;
 		}
 		else{
-			slots=(char*)krealloc(slots,channel_amount*MAX_LEN*sizeof(char),GFP_KERNEL);
-			if(slots==NULL)
+			slots[current_minor]=(char*)krealloc(slots[current_minor],channel_amount*MAX_LEN*sizeof(char),GFP_KERNEL);
+			if(slots[current_minor]==NULL)
 				return -1;
-			channel_list=(int*)krealloc(channel_list,channel_amount*sizeof(int),GFP_KERNEL);
-			if(channel_list==NULL)
+			channel_list[current_minor]=(int*)krealloc(channel_list[current_minor],channel_amount*sizeof(int),GFP_KERNEL);
+			if(channel_list[current_minor]==NULL)
 				return -1;
 		}
-	channel_list[channel_amount-1]=channel_num;
-	init_mem(slots,(channel_amount-1)*MAX_LEN*sizeof(char),channel_amount*MAX_LEN*sizeof(char));
+		channel_list[current_minor][channel_amount-1]=channel_num;
+		init_mem(slots[current_minor],(channel_amount[current_minor]-1)*MAX_LEN*sizeof(char),channel_amount[current_minor]*MAX_LEN*sizeof(char));
 	}
 	printk("channel num is %ld,channel location is %ld\n",channel_num,channel_location);
 	return 0;
@@ -174,11 +184,13 @@ static void __exit slot_cleanup(void){/*remove the module*/
 	int i;
 	unregister_chrdev(majorNumber,DEVICE_RANGE_NAME);
 	for(i=0;i<MAX_MINORS;i++){
-		if(initiated_minor[i]){/*NEED TO CHANGE-WE HAVE MANY MINORS NOW*/
-			kfree(channel_list);
-			kfree(slots);
+		if(initiated_minor[i]){/*if we allocated space for a minor,we need to free it.*/
+			kfree(channel_list[i]);
+			kfree(slots[i]);
 		}
 	}
+	kfree(channel_list);
+	kfree(slots);
 	printk("removing module\n");
 }
 
