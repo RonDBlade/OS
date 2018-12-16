@@ -3,7 +3,8 @@
 
 #include <linux/ioctl.h>
 
-#define MSG_SLOT_CHANNEL _IOW(242,0,unsigned long)/*doesnt matter what the 1st argument 
+#define MAJOR_NUM 242
+#define MSG_SLOT_CHANNEL _IOW(MAJOR_NUM,0,unsigned long)/*doesnt matter what the 1st argument 
 	sent will contain,only a convention*/
 
 #endif
