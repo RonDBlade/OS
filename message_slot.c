@@ -27,7 +27,7 @@ static int majorNumber;
 static int current_minor;
 static char **slots;/*the message slots of the device*/
 static unsigned long channel_num;/*ioctl sets what channel we want to read/write from/to*/
-static int channel_amount[MAX_MINOR];/*total amount of open channels for each minor*/
+static int channel_amount[MAX_MINORS];/*total amount of open channels for each minor*/
 static int** channel_list;/*show where channels are located in the slots double array
 eg: [i] contains 30 means channel 30 is in [i*128]-[i*128+127] in slots*/
 static unsigned long channel_location;/*where the channel starts on the slots array*/
@@ -128,25 +128,25 @@ static long device_ioctl(struct file* file,unsigned int ioctl_command_id,unsigne
 	if(channel_location==-1){/*channel wasn't found,need to dynamically allocate
 			more space for the channels*/
 		channel_amount[current_minor]++;
-		channel_location=(channel_amount[current_minor]-1)*MAX_LEN;
+		channel_location=(channel_amount[current_minor]-1);
 		if(channel_amount[current_minor]==1){
 			initiated_minor[current_minor]=1;
-			slots[current_minor]=(char*)kmalloc(channel_amount*MAX_LEN*sizeof(char),GFP_KERNEL);
+			slots[current_minor]=(char*)kmalloc(channel_amount[current_minor]*MAX_LEN*sizeof(char),GFP_KERNEL);
 			if(slots[current_minor]==NULL)
 				return -1;
-			channel_list[current_minor]=(int*)kmalloc(channel_amount*sizeof(int),GFP_KERNEL);
+			channel_list[current_minor]=(int*)kmalloc(channel_amount[current_minor]*sizeof(int),GFP_KERNEL);
 			if(channel_list[current_minor]==NULL)
 				return -1;
 		}
 		else{
-			slots[current_minor]=(char*)krealloc(slots[current_minor],channel_amount*MAX_LEN*sizeof(char),GFP_KERNEL);
+			slots[current_minor]=(char*)krealloc(slots[current_minor],channel_amount[current_minor]*MAX_LEN*sizeof(char),GFP_KERNEL);
 			if(slots[current_minor]==NULL)
 				return -1;
-			channel_list[current_minor]=(int*)krealloc(channel_list[current_minor],channel_amount*sizeof(int),GFP_KERNEL);
+			channel_list[current_minor]=(int*)krealloc(channel_list[current_minor],channel_amount[current_minor]*sizeof(int),GFP_KERNEL);
 			if(channel_list[current_minor]==NULL)
 				return -1;
 		}
-		channel_list[current_minor][channel_amount-1]=channel_num;
+		channel_list[current_minor][channel_amount[current_minor]-1]=channel_num;
 		init_mem(slots[current_minor],(channel_amount[current_minor]-1)*MAX_LEN*sizeof(char),channel_amount[current_minor]*MAX_LEN*sizeof(char));
 	}
 	printk("channel num is %ld,channel location is %ld\n",channel_num,channel_location);
