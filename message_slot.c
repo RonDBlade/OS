@@ -16,18 +16,15 @@
 
 MODULE_LICENSE("GPL");
 
-#define DEVICE_RANGE_NAME "message_slot"/*module name,/def/filename is created with mknod,
-		needs to be a different filename for each message_slot we create*/
-/*i thought we need to #define DEVICE_FILE_NAME in the code too,but it is done in the bash,
-different filename for each message_slot*/
+#define DEVICE_RANGE_NAME "message_slot"/*module name*/
 #define MAX_LEN 128
 #define MAX_MINORS 256
 
-static int current_minor;
-static char **slots;/*the message slots of the device*/
+static int current_minor;/*holds the number of the current minor that was called upon*/
+static char **slots;/*for each device holds the data of each channel*/
 static unsigned long channel_num;/*ioctl sets what channel we want to read/write from/to*/
 static int channel_amount[MAX_MINORS];/*total amount of open channels for each minor*/
-static int** channel_list;/*show where channels are located in the slots double array
+static int** channel_list;/*show where channels are located in the slots double array for each minor
 eg: [i] contains 30 means channel 30 is in [i*128]-[i*128+127] in slots*/
 static unsigned long channel_location;/*where the channel starts on the slots array*/
 static int initiated=0;/*to see if we allocated mem at all*/
@@ -38,7 +35,7 @@ static int device_open(struct inode* inode,struct file* file){/*creates device.i
 		creates data structure for thespecific message slot that is being opened*/
 	printk("invoking device open\n");
 	current_minor=iminor(inode);
-	if(initiated==0){
+	if(!initiated){/*if 0,its the first device that we opened.need to allocate the memory*/
 		initiated=1;
 		channel_list=(int**)kmalloc(MAX_MINORS*sizeof(int*),GFP_KERNEL);/*initialize list of initialized channels for each minor*/
 		if(channel_list==NULL)
@@ -65,17 +62,16 @@ static ssize_t device_read(struct file* file,char __user* buffer,
 			size_t length,loff_t* offset){/*read data fro message slot to user*/
 	int i,size;
 	printk("invoking device read\n");
-	if(!channel_num)
+	if(!channel_num)/*a channel was not set*/
 		return -EINVAL;
-	if(slots[current_minor][channel_location*MAX_LEN]=='\0')/*channel has no message*/
+	if(slots[current_minor][channel_location*MAX_LEN]=='\0')/*channel has no message,wasn't written to*/
 		return -EWOULDBLOCK;
 	size=find_size(slots[current_minor],channel_location*MAX_LEN);
-	if(size>length)/*shouldn't happen,in usercode we set length to 128*/
+	if(size>length)/*message in channel is longer than user buffer.shouldn't happen,in usercode we set length to 128*/
 		return -ENOSPC;
 	for(i=0;i<size;i++){
-		if(put_user(slots[current_minor][i+channel_location*MAX_LEN],&buffer[i])!=0)
+		if(put_user(slots[current_minor][i+channel_location*MAX_LEN],&buffer[i])!=0)/*put data in user unless error*/
 			return -EFAULT;
-		printk("%c\n",slots[current_minor][i+channel_location*MAX_LEN]);
 	}
 	return 0;
 }
@@ -84,21 +80,20 @@ static ssize_t device_write(struct file* file, const char __user* buffer,
 			size_t length,loff_t* offset){/*write data to message slot from user*/
 	int i;
 	printk("invoking device write\n");
-	if(!channel_num)/*shouldn't happen,we do ioctl every time*/
+	if(!channel_num)/*channel wasn't set*/
 		return -EINVAL;
 	if(length==0 || length>MAX_LEN)/*length isn't correct*/
 		return -EMSGSIZE;
 	for(i=0;i<length;i++){
-		if(get_user(slots[current_minor][i+channel_location*MAX_LEN],&buffer[i])!=0)/*error happened in get_user*/
+		if(get_user(slots[current_minor][i+channel_location*MAX_LEN],&buffer[i])!=0)/*get data from user unless error*/
 			return -EFAULT;
-		printk("%c\n",slots[current_minor][i+channel_location*MAX_LEN]);
 	}
 	if(length<MAX_LEN)
-		slots[current_minor][channel_location*MAX_LEN+length]='\0';
+		slots[current_minor][channel_location*MAX_LEN+length]='\0';/*put '\0' after last char of message if needed*/
 	return length;
 }
 
-int find_channel(unsigned long channel_id){
+int find_channel(unsigned long channel_id){/*see if for this minor the channel has been used*/
 	int i;
 	for(i=0;i<channel_amount[current_minor];i++){
 		if(channel_list[current_minor][i]==channel_id)
@@ -114,21 +109,20 @@ void init_mem(char* array,int start,int end){/*zero-out the added memory*/
 	}
 }
 
-static long device_ioctl(struct file* file,unsigned int ioctl_command_id,unsigned long channel_id){
-	/*set what channel we want to talk talk to*/
+static long device_ioctl(struct file* file,unsigned int ioctl_command_id,unsigned long channel_id){/*set what channel we want to talk talk to*/
 	printk("invoking device ioctl\n");
-	if(MSG_SLOT_CHANNEL!=ioctl_command_id)
+	if(MSG_SLOT_CHANNEL!=ioctl_command_id)/*if not the change channel command*/
 		return -EINVAL;
-	if(channel_id==0)
+	if(channel_id==0)/*if set channel is 0*/
 		return -EINVAL;
 	printk("changing channel\n");
 	channel_num=channel_id;
-	channel_location=find_channel(channel_num);
+	channel_location=find_channel(channel_num);/*find if we talked to that channel in this minor*/
 	if(channel_location==-1){/*channel wasn't found,need to dynamically allocate
 			more space for the channels*/
-		channel_amount[current_minor]++;
+		channel_amount[current_minor]++;/*wasn't talked to,increase the number of talked to,add this to talked too,allocate mem for channel*/
 		channel_location=(channel_amount[current_minor]-1);
-		if(channel_amount[current_minor]==1){
+		if(channel_amount[current_minor]==1){/*first time talking to a channel in this device,need to allocate for the first time*/
 			initiated_minor[current_minor]=1;
 			slots[current_minor]=(char*)kmalloc(channel_amount[current_minor]*MAX_LEN*sizeof(char),GFP_KERNEL);
 			if(slots[current_minor]==NULL)
@@ -137,7 +131,7 @@ static long device_ioctl(struct file* file,unsigned int ioctl_command_id,unsigne
 			if(channel_list[current_minor]==NULL)
 				return -1;
 		}
-		else{
+		else{/*already talked to a channel in this device,need to reallocate*/
 			slots[current_minor]=(char*)krealloc(slots[current_minor],channel_amount[current_minor]*MAX_LEN*sizeof(char),GFP_KERNEL);
 			if(slots[current_minor]==NULL)
 				return -1;
@@ -145,14 +139,13 @@ static long device_ioctl(struct file* file,unsigned int ioctl_command_id,unsigne
 			if(channel_list[current_minor]==NULL)
 				return -1;
 		}
-		channel_list[current_minor][channel_amount[current_minor]-1]=channel_num;
-		init_mem(slots[current_minor],(channel_amount[current_minor]-1)*MAX_LEN*sizeof(char),channel_amount[current_minor]*MAX_LEN*sizeof(char));
+		channel_list[current_minor][channel_amount[current_minor]-1]=channel_num;/*add to channel list*/
+		init_mem(slots[current_minor],(channel_amount[current_minor]-1)*MAX_LEN*sizeof(char),channel_amount[current_minor]*MAX_LEN*sizeof(char));/*reset the mem area*/
 	}
-	printk("channel num is %ld,channel location is %ld\n",channel_num,channel_location);
-	return 0;
+	return 0;/*success*/
 }
 
-static int device_release(struct inode* inode,struct file* file){/*for close i think?*/
+static int device_release(struct inode* inode,struct file* file){/*doesn't really do anything*/
 	printk("invoking device release\n");
 	return 0; /*success*/
 }
@@ -180,7 +173,7 @@ static int __init slot_init(void){/*create the module*/
 	return 0;
 }
 
-static void __exit slot_cleanup(void){/*remove the module*/
+static void __exit slot_cleanup(void){/*remove the module,free the mem we allocated for all of the devices*/
 	int i;
 	unregister_chrdev(MAJOR_NUM,DEVICE_RANGE_NAME);
 	for(i=0;i<MAX_MINORS;i++){
@@ -189,9 +182,10 @@ static void __exit slot_cleanup(void){/*remove the module*/
 			kfree(slots[i]);
 		}
 	}
-	kfree(channel_list);
-	kfree(slots);
-	printk("removing module\n");
+	if(initiated){
+		kfree(channel_list);
+		kfree(slots);
+	}
 }
 
 module_init(slot_init);
