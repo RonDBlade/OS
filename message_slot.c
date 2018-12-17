@@ -182,7 +182,7 @@ static void __exit slot_cleanup(void){/*remove the module,free the mem we alloca
 			kfree(slots[i]);
 		}
 	}
-	if(initiated){
+	if(initiated){/*if we didn't do anything with any device we didn't allocate any memory*/
 		kfree(channel_list);
 		kfree(slots);
 	}
