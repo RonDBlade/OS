@@ -20,7 +20,11 @@ queueStruct* initQueue(){
 	queue->size=0;
 	queue->front=0;
 	queue->rear=0;
-	queue->array=(char*)malloc(0);
+	queue->array=(char*)malloc(NAME_MAX*sizeof(char));
+	if(queue->array==NULL){
+		printf("malloc failed: %s\n",strerror(errno));
+		exit(1);
+	}
 	return queue;
 }
 
@@ -41,16 +45,16 @@ void enqueue(queueStruct* queue,char* item){/*inserts new item to the queue*/
 void dequeue(queueStruct* queue,char* item){/*pops out the first item in the queue,saves in item*/
 	int i=0;
 	for(i=0;i<NAME_MAX;i++){
-		item[i]=queue->array[(queue->front)+1];
+		item[i]=queue->array[(queue->front)+i];
 	}
 	queue->front=(queue->front)+NAME_MAX;
 	queue->size=(queue->size)-1;
 }
 
-static long count=0;
+static int count=0;
 static char* name;
 static queueStruct* current_dirs;/*max size of name of dir is NAME_MAX (from limits.h)*/
-pthread_mutex_t lock;
+pthread_mutex_t countlock;
 
 int string_to_int(char* thread_count){/*translate the argument which specifies how many threads we want to use to an int*/
 	long count=0,i;
@@ -67,33 +71,36 @@ void* thread_func(void* thread_param){/*what each thread does*/
 	long num=(long)thread_param;
 	DIR *d;
 	struct dirent *dir;
-	char dirname[128];
+	char dirname[NAME_MAX];
 	dequeue(current_dirs,dirname);
 	d=opendir((const char*)dirname);
 	if(d){
 		while((dir=readdir(d))!=NULL){
-			if((dir->d_name)!="." || (dir->d_name)!="..")
+			printf("%s\n",dir->d_name);
+			if((!strcmp(dir->d_name,".")) || (!strcmp(dir->d_name,"..")))
 				continue;
 			if(dir->d_type==DT_DIR)
 				enqueue(current_dirs,dir->d_name);
-			if(dir->d_name==name)
-				rc=pthread_mutex_lock(&lock);
+			if(!strcmp(dir->d_name,name)){
+				printf("yeet\n");
+				rc=pthread_mutex_lock(&countlock);
 				if(rc){
 					printf("ERROR in pthread_mutex_lock(): %s\n",strerror(rc));
 					exit(1);
 				}
 				count++;
-				rc=pthread_mutex_unlock(&lock);
+				rc=pthread_mutex_unlock(&countlock);
 				if(rc){
 					printf("ERROR in pthread_mutex_unlock(): %s\n",strerror(rc));
 					exit(1);
 				}
+			}
 		}
 	}
 	closedir(d);
 
 
-
+	printf("jeff3\n");
 	pthread_exit(NULL);
 }
 
@@ -103,8 +110,9 @@ int main(int argc,char** argv){
 	void* status;
 	name=argv[2];
 	current_dirs=initQueue();
-	enqueue(current_dirs,arv[1]);
-	rc=pthread_mutex_init(&lock,NULL);
+	printf("jeff1\n");
+	enqueue(current_dirs,argv[1]);
+	rc=pthread_mutex_init(&countlock,NULL);
 	if(rc){
 		printf("ERROR in pthread_mutex_init(): %s\n",strerror(rc));
 		exit(1);
@@ -119,6 +127,7 @@ int main(int argc,char** argv){
 			exit(1);
 		}
 	}
+	printf("jeff2\n");
 	for(i=0;i<num_threads;i++){
 		rc=pthread_join(thread[i],&status);
 		if(rc){
@@ -127,7 +136,7 @@ int main(int argc,char** argv){
 		}
 		printf("Main: completed join with thread %ld having a status of %ld\n",i,(long)status);
 	}
-	printf("amount of threads was %ld\n",count);
+	printf("Done searching, found  %d files\n",count);
 	free(current_dirs->array);
 	free(current_dirs);
 	exit(0);
