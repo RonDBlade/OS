@@ -154,6 +154,7 @@ void* thread_func(void* thread_param){/*what each thread does*/
 		}
 		dequeued=1;
 		dequeue(current_dirs,dirname);
+		printf("dequeueing in thread %d\n",(int)thread_param);
 		rc=pthread_mutex_unlock(&queuelock);
 		if(rc){
 			printf("ERROR in pthread_mutex_unlock(): %s\n",strerror(rc));
