@@ -60,10 +60,15 @@ void dequeue(queueStruct* queue,char* item){/*pops out the first item in the que
 
 static int count=0;
 static char* name;
+static int idlecount=0;
+static int num_threads;
+static int dequeued=0;
 static queueStruct* current_dirs;/*max size of name of dir is NAME_MAX (from limits.h)*/
 pthread_mutex_t countlock;
 pthread_mutex_t queuelock;
+pthread_mutex_t idlelock;
 pthread_cond_t notEmpty;
+pthread_cond_t allIdle;
 
 int string_to_int(char* thread_count){/*translate the argument which specifies how many threads we want to use to an int*/
 	long count=0,i;
@@ -72,6 +77,38 @@ int string_to_int(char* thread_count){/*translate the argument which specifies h
 		count+=thread_count[i]-'0';
 	}
 	return count;
+}
+
+void cancel_threads(void* thread_param){
+	int i,rc;
+	pthread_t* thread=(pthread_t*)thread_param;
+	for(i=0;i<num_threads;i++){
+		rc=pthread_cancel(thread[i]);
+		if(rc){
+			printf("ERROR in pthread_cancel(): %s\n",strerror(rc));
+			exit(1);
+		}
+	}
+}
+
+void* thread_ender(void* thread_param){
+	int rc;
+	rc=pthread_mutex_lock(&idlelock);
+	if(rc){
+		printf("ERROR in pthread_mutex_lock(): %s\n",strerror(rc));
+		exit(1);
+	}
+	if(idlecount<num_threads){
+		pthread_cond_wait(&allIdle,&idlelock);
+		cancel_threads(thread_param);
+	}
+	rc=pthread_mutex_unlock(&idlelock);
+	if(rc){
+		printf("ERROR in pthread_mutex_unlock(): %s\n",strerror(rc));
+		exit(1);
+	}
+	printf("idle count reached\n");
+	pthread_exit(NULL);
 }
 
 void* thread_func(void* thread_param){/*what each thread does*/
@@ -87,9 +124,36 @@ void* thread_func(void* thread_param){/*what each thread does*/
 			printf("ERROR in pthread_mutex_lock(): %s\n",strerror(rc));
 			exit(1);
 		}
+		rc=pthread_mutex_lock(&idlelock);
+		if(rc){
+			printf("ERROR in pthread_mutex_lock(): %s\n",strerror(rc));
+			exit(1);
+		}
+		idlecount++;
+		if((idlecount==num_threads) && dequeued && (current_dirs->size==0)){
+			pthread_cond_signal(&allIdle);
+		}
+		rc=pthread_mutex_unlock(&idlelock);
+		if(rc){
+			printf("ERROR in pthread_mutex_unlock(): %s\n",strerror(rc));
+			exit(1);
+		}
 		while(current_dirs->size==0){
+			printf("%d\n",(int)thread_param);
 			pthread_cond_wait(&notEmpty,&queuelock);
 		}
+		rc=pthread_mutex_lock(&idlelock);
+		if(rc){
+			printf("ERROR in pthread_mutex_lock(): %s\n",strerror(rc));
+			exit(1);
+		}
+		idlecount--;
+		rc=pthread_mutex_unlock(&idlelock);
+		if(rc){
+			printf("ERROR in pthread_mutex_unlock(): %s\n",strerror(rc));
+			exit(1);
+		}
+		dequeued=1;
 		dequeue(current_dirs,dirname);
 		rc=pthread_mutex_unlock(&queuelock);
 		if(rc){
@@ -133,7 +197,6 @@ void* thread_func(void* thread_param){/*what each thread does*/
 			}
 		}
 		closedir(d);
-		break;
 	}
 
 	printf("jeff3\n");
@@ -141,8 +204,7 @@ void* thread_func(void* thread_param){/*what each thread does*/
 }
 
 int main(int argc,char** argv){
-	long num_threads,i;
-	int rc;
+	int rc,i;
 	void* status;
 	name=argv[2];
 	current_dirs=initQueue();
@@ -158,14 +220,24 @@ int main(int argc,char** argv){
 		printf("ERROR in pthread_mutex_init(): %s\n",strerror(rc));
 		exit(1);
 	}
+	rc=pthread_mutex_init(&idlelock,NULL);
+	if(rc){
+		printf("ERROR in pthread_mutex_init(): %s\n",strerror(rc));
+		exit(1);
+	}
 	rc=pthread_cond_init(&notEmpty,NULL);
 	if(rc){
 		printf("ERROR in pthread_cond_init(): %s\n",strerror(rc));
 		exit(1);
 	}
+	rc=pthread_cond_init(&allIdle,NULL);
+	if(rc){
+		printf("ERROR in pthread_cond_init(): %s\n",strerror(rc));
+		exit(1);
+	}
 	num_threads=string_to_int(argv[3]);
-	printf("number of threads in total is %ld\n",num_threads);
-	pthread_t thread[num_threads];
+	printf("number of threads in total is %d\n",num_threads);
+	pthread_t thread[num_threads+1];
 	for(i=0;i<num_threads;i++){
 		rc=pthread_create(&thread[i],NULL,thread_func,(void*)i);
 		if(rc){
@@ -173,20 +245,27 @@ int main(int argc,char** argv){
 			exit(1);
 		}
 	}
+	rc=pthread_create(&thread[num_threads],NULL,thread_ender,(void*)thread);
+	if(rc){
+		printf("ERROR in pthread_create(): %s\n",strerror(rc));
+		exit(1);
+	}
 	printf("jeff2\n");
-	for(i=0;i<num_threads;i++){
+	for(i=0;i<num_threads+1;i++){
 		rc=pthread_join(thread[i],&status);
 		if(rc){
 			printf("ERROR in pthread_join(): %s\n",strerror(rc));
 			exit(1);
 		}
-		printf("Main: completed join with thread %ld having a status of %ld\n",i,(long)status);
+		printf("Main: completed join with thread %d having a status of %ld\n",i,(long)status);
 	}
 	printf("Done searching, found  %d files\n",count);
 	free(current_dirs->array);
 	free(current_dirs);
 	pthread_mutex_destroy(&countlock);
 	pthread_mutex_destroy(&queuelock);
+	pthread_mutex_destroy(&idlelock);
 	pthread_cond_destroy(&notEmpty);
+	pthread_cond_destroy(&allIdle);
 	exit(0);
 }
