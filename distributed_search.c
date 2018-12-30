@@ -98,6 +98,7 @@ void* thread_ender(void* thread_param){
 	}
 	if(idlecount<num_threads){
 		pthread_cond_wait(&allIdle,&idlelock);
+		printf("cancelling threads\n");
 		cancel_threads(thread_param);
 	}
 	rc=pthread_mutex_unlock(&idlelock);
@@ -137,8 +138,7 @@ void* thread_func(void* thread_param){/*what each thread does*/
 			exit(1);
 		}
 		while(current_dirs->size==0){
-			printf("%d\n",(int)thread_param);
-			printf("waiting for queue to fill\n");
+			printf("waiting for queue to fill on thread %d\n",(int)thread_param);
 			pthread_cond_wait(&notEmpty,&queuelock);
 		}
 		rc=pthread_mutex_lock(&idlelock);
