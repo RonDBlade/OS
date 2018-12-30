@@ -30,13 +30,11 @@ queueStruct* initQueue(){
 
 void enqueue(queueStruct* queue,char* item){/*inserts new item to the queue*/
 	int i;
-	printf("%d\n",NAME_MAX*sizeof(char)*((queue->size)+1));
 	queue->array=(char*)realloc(queue->array,NAME_MAX*sizeof(char)*((queue->size)+1));
 	if(queue->array==NULL){
 		printf("ERROR in realloc(): %s\n",strerror(errno));
 		exit(1);
 	}
-	printf("after realloc\n");
 	for(i=0;i<NAME_MAX;i++){/*insert item to the last place in the queue*/
 		if(i<strlen(item))
 			queue->array[(queue->rear)+i]=item[i];
@@ -140,6 +138,7 @@ void* thread_func(void* thread_param){/*what each thread does*/
 		}
 		while(current_dirs->size==0){
 			printf("%d\n",(int)thread_param);
+			printf("waiting for queue to fill\n");
 			pthread_cond_wait(&notEmpty,&queuelock);
 		}
 		rc=pthread_mutex_lock(&idlelock);
@@ -208,7 +207,6 @@ int main(int argc,char** argv){
 	void* status;
 	name=argv[2];
 	current_dirs=initQueue();
-	printf("jeff1\n");
 	enqueue(current_dirs,argv[1]);
 	rc=pthread_mutex_init(&countlock,NULL);
 	if(rc){
