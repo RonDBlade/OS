@@ -20,7 +20,7 @@ queueStruct* initQueue(){
 	queue->size=0;
 	queue->front=0;
 	queue->rear=0;
-	queue->array=(char*)malloc(NAME_MAX*sizeof(char));
+	queue->array=(char*)malloc(sizeof(char));
 	if(queue->array==NULL){
 		printf("malloc failed: %s\n",strerror(errno));
 		exit(1);
@@ -31,14 +31,18 @@ queueStruct* initQueue(){
 void enqueue(queueStruct* queue,char* item){/*inserts new item to the queue*/
 	int i;
 	queue->array=(char*)realloc(queue->array,NAME_MAX*sizeof(char)*((queue->size)+1));
-	/*add check if it fails*/
+	if(queue->array==NULL){
+		printf("ERROR in realloc(): %s\n",strerror(errno));
+		exit(1);
+	}
 	for(i=0;i<NAME_MAX;i++){/*insert item to the last place in the queue*/
 		if(i<strlen(item))
 			queue->array[(queue->rear)+i]=item[i];
 		else
 			queue->array[(queue->rear)+i]='\0';
 	}
-	queue->rear=(queue->rear)+NAME_MAX;
+	queue->rear=(queue->rear)+(NAME_MAX*sizeof(char));
+	printf("%d\n",queue->rear);
 	queue->size=(queue->size)+1;
 }
 
@@ -47,7 +51,7 @@ void dequeue(queueStruct* queue,char* item){/*pops out the first item in the que
 	for(i=0;i<NAME_MAX;i++){
 		item[i]=queue->array[(queue->front)+i];
 	}
-	queue->front=(queue->front)+NAME_MAX;
+	queue->front=(queue->front)+(NAME_MAX*sizeof(char));
 	queue->size=(queue->size)-1;
 }
 
@@ -96,7 +100,7 @@ void* thread_func(void* thread_param){/*what each thread does*/
 			printf("%s\n",dir->d_name);
 			if((!strcmp(dir->d_name,".")) || (!strcmp(dir->d_name,"..")))
 				continue;
-			if(dir->d_type==DT_DIR)
+			if(dir->d_type==DT_DIR){
 				rc=pthread_mutex_lock(&enqueuelock);
 				if(rc){
 					printf("ERROR in pthread_mutex_lock(): %s\n",strerror(rc));
@@ -108,6 +112,7 @@ void* thread_func(void* thread_param){/*what each thread does*/
 					printf("ERROR in pthread_mutex_unlock(): %s\n",strerror(rc));
 					exit(1);
 				}
+			}
 			if(!strcmp(dir->d_name,name)){
 				printf("yeet\n");
 				rc=pthread_mutex_lock(&countlock);
