@@ -52,8 +52,9 @@ void dequeue(queueStruct* queue,char* item){/*pops out the first item in the que
 	for(i=0;i<NAME_MAX;i++){
 		item[i]=queue->array[(queue->front)+i];
 	}
-	queue->front=(queue->front)+(NAME_MAX*sizeof(char));
 	queue->size=(queue->size)-1;
+	memmove(queue->array,queue->array+(NAME_MAX*sizeof(char)),NAME_MAX*sizeof(char)*(queue->size));
+	queue->array=(char*)realloc(queue->array,NAME_MAX*sizeof(char)*(queue->size));
 }
 
 static int count=0;
