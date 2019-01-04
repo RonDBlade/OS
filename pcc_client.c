@@ -4,6 +4,13 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+
+
 
 unsigned int string_to_int(char* thread_count){/*translate the argument which specifies how many threads we want to use to an int*/
 	int i;
@@ -16,10 +23,11 @@ unsigned int string_to_int(char* thread_count){/*translate the argument which sp
 }
 
 int main(int argc,char** argv){
-	unsigned int temp;
-	int ret,randfd,sockfd;
+	unsigned int temp,amount_read,total_read=0,C=0,temp2=0,temp3=0;
+	int randfd,sockfd;
+	char* temparr;
 	struct sockaddr_in serv_addr;
-	/*create tcp connection code here*/
+	/*creating tcp connection code here*/
 	if((sockfd=socket(AF_INET,SOCK_STREAM,0))<0){/*create the socket for the transmissions*/
 		printf("ERROR in socket(): %s\n",strerror(errno));
 		exit(1);
@@ -33,7 +41,6 @@ int main(int argc,char** argv){
 		printf("ERROR in connect(): %s\n",strerror(errno));
 		exit(1);
 	}
-
 	temp=string_to_int(argv[3]);/*the number of chars we want to read from /dev/urandom*/
 	char mymessage[temp+1];/*1 more for '\0'*/
 	memset(mymessage,0,temp+1);
@@ -44,11 +51,39 @@ int main(int argc,char** argv){
 		printf("ERROR in open(): %s\n",strerror(errno));
 		exit(1);
 	}
-	ret=read(randfd,mymessage,temp);
-	if(ret<0){
-		printf("ERROR in read(): %s\n",strerror(errno));
-		exit(1);
+	while(total_read<temp){/*read from the /dev/urandom*/
+		amount_read=read(randfd,mymessage+total_read,temp-total_read);
+		if(amount_read<0){
+			printf("ERROR in read(): %s\n",strerror(errno));
+			exit(1);
+		}
+		total_read+=amount_read;
 	}
 	printf("%s\n",mymessage);
+	total_read=0;
+	while(total_read<temp){/*write to server and read the answer*/
+		amount_read=write(sockfd,mymessage+total_read,temp-total_read);/*writes some of the chars to the server*/
+		if(amount_read<0){
+			printf("ERROR in write(): %s\n",strerror(errno));
+			exit(1);
+		}
+		total_read+=amount_read;
+		temparr=(char*)calloc(amount_read+1,sizeof(char));
+		while(1){/*from what we did sent right now,find how many were printable*/
+			temp2=read(sockfd,temparr+temp3,amount_read-temp3);
+			if(temp2<0){
+				printf("ERROR in read(): %s\n",strerror(errno));
+				exit(1);
+			}
+			if(temp2=0){
+				break;
+			}
+			temp3+=temp2;
+		}
+		temp2=string_to_int(temparr);
+		C+=temp2;
+		free(temparr);
+	}
+	printf("# of printable characters: %u\n", C);
 	exit(0);
 }
