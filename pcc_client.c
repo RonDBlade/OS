@@ -65,13 +65,15 @@ int main(int argc,char** argv){
 			temp2=temp-total_sent;/*set how much we will send*/
 		else
 			temp2=1024;
-		amount_sent=write(sockfd,mymessage+total_sent,temp2);/*writes some of the chars to the server*/
+		printf("%d\n",temp2);
+		amount_sent=write(sockfd,mymessage+total_sent,1024);/*writes some of the chars to the server*/
 		if(amount_sent<0){/*error occured*/
 			printf("ERROR in write(): %s\n",strerror(errno));
 			exit(1);
 		}
 		else if(amount_sent==0)/*shouldn't happen*/
 			break;
+		printf("%d\n",amount_sent);
 		total_sent+=amount_sent;/*increase the total of how much we sent to server,offset increase as well*/
 		temparr=(char*)calloc(amount_sent+1,sizeof(char));
 		while(1){/*from what we did sent right now,find how many were printable*/
@@ -84,6 +86,7 @@ int main(int argc,char** argv){
 				break;
 			}
 			temp3+=temp2;/*offset increase+how much to read decrease*/
+			printf("%d\n",temp2);
 		}
 		temp2=string_to_int(temparr);/*convert the string the server sent to int and increase counter*/
 		C+=temp2;

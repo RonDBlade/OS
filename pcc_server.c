@@ -19,10 +19,11 @@ unsigned int string_to_int(char* thread_count){/*translate the argument which sp
 }
 
 int main(int argc,char** argv){
-	int listenfd,connfd;
-	unsigned int temp,amount_read,temp2=0,i,count;
+	int listenfd,connfd,onfile;
+	unsigned int temp,amount_read,temp2=0,i,count,amount_sent,length,temp3=0;
 	struct sockaddr_in serv_addr;
 	char temparr[1024];
+	char* str;
 	unsigned int pcc_total[95];/*init counter struct*/
 	memset(pcc_total,0,95);
 	memset(temparr,0,1024);
@@ -44,29 +45,54 @@ int main(int argc,char** argv){
 		exit(1);
 	}
 	while(1){
-		connfd=accept(listenfd,NULL,NULL);/*esatablish the connection*/
+		connfd=accept(listenfd,NULL,NULL);/*establish the connection*/
 		if(connfd<0){
 			printf("ERROR in accept(): %s\n",strerror(errno));
 			exit(1);
 		}
-		count=0;/*counts each time how many chars that were sent to the server in each iteration were printable chars*/
-		while(1){/*reading from client until we read everything*/
-			amount_read=read(connfd,temparr+temp2,1024-temp2);/*limit how much we read each time to 1024*/
-			if(amount_read<0){
-				printf("ERROR in read(): %s\n",strerror(errno));
-				exit(1);
+		onfile=1;
+		printf("connection accepted\n");
+		while(onfile){
+			count=0;/*counts each time how many chars that were sent to the server in each iteration were printable chars*/
+			while(1){/*reading from client until we read everything*/
+				amount_read=read(connfd,temparr+temp2,1024-temp2);/*limit how much we read each time to 1024*/
+				if(amount_read<0){
+					printf("ERROR in read(): %s\n",strerror(errno));
+					exit(1);
+				}
+				else if(amount_read==0)
+					break;
+				temp2+=amount_read;
+				if(temp2==1024)
+					break;
+				printf("%d\n",temp2);
 			}
-			else if(amount_read==0)
-				break;
-			temp2+=amount_read;
-			if(temp2==1024)
-				break;
-		}
-		for(i=0;i<temp2;i++){
-			if(temparr[i]>=32 && temparr[i]<=126){/*found printable,increase needed counters*/
-				count++;
-				pcc_total[temparr[i]-32]++;
+			printf("finished reading\n");
+			for(i=0;i<temp2;i++){
+				if(temparr[i]>=32 && temparr[i]<=126){/*found printable,increase needed counters*/
+					count++;
+					pcc_total[temparr[i]-32]++;
+				}
 			}
+			printf("preparing to send answer\n");
+			length=snprintf(NULL,0,"%d",count);/*coverting the int to a string*/
+			str=(char*)calloc(length+1,sizeof(char));/*from stackoverflow "how to convert an int to string in c*/
+			snprintf(str,length+1,"%d",count);
+			while(1){
+				amount_sent=write(connfd,str+temp3,length-temp3);
+				if(amount_sent<0){
+					printf("ERROR in write(): %s\n",strerror(errno));
+					exit(1);
+				}
+				temp3+=amount_sent;
+				if(temp3==length)/*we sent the result of this chunk of chars to the client*/
+					break;
+			}
+			printf("sent answer\n");
+			temp2=0;
+			free(str);
+			printf("%d\n",count);
+			onfile=0;
 		}
 	}
 	exit(0);
