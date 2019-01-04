@@ -23,7 +23,7 @@ unsigned int string_to_int(char* thread_count){/*translate the argument which sp
 }
 
 int main(int argc,char** argv){
-	unsigned int temp,amount_read,total_read=0,C=0,temp2=0,temp3=0;
+	unsigned int temp,amount_read,total_read=0,C=0,temp2=0,temp3=0,amount_sent,total_sent=0;
 	int randfd,sockfd;
 	char* temparr;
 	struct sockaddr_in serv_addr;
@@ -60,27 +60,32 @@ int main(int argc,char** argv){
 		total_read+=amount_read;
 	}
 	printf("%s\n",mymessage);
-	total_read=0;
-	while(total_read<temp){/*write to server and read the answer*/
-		amount_read=write(sockfd,mymessage+total_read,temp-total_read);/*writes some of the chars to the server*/
-		if(amount_read<0){
+	while(total_sent<temp){/*write to server and read the answer*/
+		if(temp-total_sent<1024)/*control how much we send so we won't miss data,as server reads 1024 each time*/
+			temp2=temp-total_sent;/*set how much we will send*/
+		else
+			temp2=1024;
+		amount_sent=write(sockfd,mymessage+total_sent,temp2);/*writes some of the chars to the server*/
+		if(amount_sent<0){/*error occured*/
 			printf("ERROR in write(): %s\n",strerror(errno));
 			exit(1);
 		}
-		total_read+=amount_read;
-		temparr=(char*)calloc(amount_read+1,sizeof(char));
+		else if(amount_sent==0)/*shouldn't happen*/
+			break;
+		total_sent+=amount_sent;/*increase the total of how much we sent to server,offset increase as well*/
+		temparr=(char*)calloc(amount_sent+1,sizeof(char));
 		while(1){/*from what we did sent right now,find how many were printable*/
-			temp2=read(sockfd,temparr+temp3,amount_read-temp3);
+			temp2=read(sockfd,temparr+temp3,amount_sent-temp3);/*read info from server*/
 			if(temp2<0){
 				printf("ERROR in read(): %s\n",strerror(errno));
 				exit(1);
 			}
-			if(temp2=0){
+			else if(temp2=0){/*server finished writing info*/
 				break;
 			}
-			temp3+=temp2;
+			temp3+=temp2;/*offset increase+how much to read decrease*/
 		}
-		temp2=string_to_int(temparr);
+		temp2=string_to_int(temparr);/*convert the string the server sent to int and increase counter*/
 		C+=temp2;
 		free(temparr);
 	}
