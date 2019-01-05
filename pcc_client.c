@@ -26,6 +26,7 @@ int main(int argc,char** argv){
 	unsigned int temp,amount_read,total_read=0,C=0,temp2=0,temp3=0,amount_sent,total_sent=0;
 	int randfd,sockfd;
 	char* temparr;
+	char temparr2[1024];
 	struct sockaddr_in serv_addr;
 	/*creating tcp connection code here*/
 	if((sockfd=socket(AF_INET,SOCK_STREAM,0))<0){/*create the socket for the transmissions*/
@@ -65,30 +66,41 @@ int main(int argc,char** argv){
 			temp2=temp-total_sent;/*set how much we will send*/
 		else
 			temp2=1024;
-		printf("%d\n",temp2);
-		amount_sent=write(sockfd,mymessage+total_sent,1);/*writes some of the chars to the server*/
+		printf("we want to send %d right now\n",temp2);
+		if(temp<1024){
+			memset(temparr2,0,1024);
+			memcpy(temparr2,&mymessage[total_sent],temp2);
+			printf("the string we are going to send is %s should be identical to the first thing we printed\n",temparr2);
+			amount_sent=write(sockfd,temparr2,1024);
+		}
+		else{
+			amount_sent=write(sockfd,mymessage+total_sent,1024);/*writes some of the chars to the server*/
+		}
 		if(amount_sent<0){/*error occured*/
 			printf("ERROR in write(): %s\n",strerror(errno));
 			exit(1);
 		}
 		else if(amount_sent==0)/*shouldn't happen*/
 			break;
-		printf("%d\n",amount_sent);
+		printf("we sent to the server %d\n",amount_sent);
 		total_sent+=amount_sent;/*increase the total of how much we sent to server,offset increase as well*/
-		temparr=(char*)calloc(amount_sent+1,sizeof(char));
+		temparr=(char*)calloc(5,sizeof(char));/*we send max 1024,so answer will take 4 bits+1 for \0*/
+		temp3=0;
 		while(1){/*from what we did sent right now,find how many were printable*/
-			temp2=read(sockfd,temparr+temp3,amount_sent-temp3);/*read info from server*/
+			temp2=read(sockfd,temparr+temp3,4-temp3);/*read info from server*/
 			if(temp2<0){
 				printf("ERROR in read(): %s\n",strerror(errno));
 				exit(1);
 			}
-			else if(temp2=0){/*server finished writing info*/
+			else if(temp2==0)/*server finished writing info*/
 				break;
-			}
 			temp3+=temp2;/*offset increase+how much to read decrease*/
-			printf("%d\n",temp2);
+			printf("we read %d\n",temp2);
+			if(temp3==4)
+				break;
 		}
 		temp2=string_to_int(temparr);/*convert the string the server sent to int and increase counter*/
+		printf("the answer the server sent us for this chunk is %d\n",temp2);
 		C+=temp2;
 		free(temparr);
 	}

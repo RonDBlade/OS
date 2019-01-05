@@ -7,6 +7,10 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/types.h>
+#include <signal.h>
+
+
+int keepgoing=1;
 
 unsigned int string_to_int(char* thread_count){/*translate the argument which specifies how many threads we want to use to an int*/
 	int i;
@@ -18,15 +22,28 @@ unsigned int string_to_int(char* thread_count){/*translate the argument which sp
 	return count;
 }
 
+void printprintable(unsigned int* array){
+	int i,c=32;
+	for(i=0;i<95;i++){
+		printf("char '%c' : %u times\n",c,array[i]);
+		c++;
+	}
+}
+
+void intHandler(){
+	keepgoing=0;
+}
+
 int main(int argc,char** argv){
 	int listenfd,connfd,onfile;
-	unsigned int temp,amount_read,temp2=0,i,count=0,amount_sent,length,temp3=0;
+	unsigned int temp,amount_read,i,count=0,amount_sent,length,temp3=0;
 	struct sockaddr_in serv_addr;
-	char temparr[1024];
+	struct sigaction sigact;
+	char temparr[1024],temparr2[5];
 	char* str;
 	unsigned int pcc_total[95];/*init counter struct*/
-	memset(pcc_total,0,95);
-	memset(temparr,0,1024);
+	memset(pcc_total,0,95*sizeof(unsigned int));
+	memset(temparr,0,1024*sizeof(char));
 	if((listenfd=socket(AF_INET,SOCK_STREAM,0))<0){
 		printf("ERROR in socker(): %s\n",strerror(errno));
 		exit(1);
@@ -44,9 +61,17 @@ int main(int argc,char** argv){
 		printf("ERROR in listen(): %s\n",strerror(errno));
 		exit(1);
 	}
-	while(1){
+	sigact.sa_handler=intHandler;
+	if(sigaction(SIGINT,&sigact,NULL)<0){
+		printf("ERROR in sigaction(): %s\n",strerror(errno));
+		exit(1);
+	}
+	while(keepgoing){
+		printf("waiting for connection\n");
 		connfd=accept(listenfd,NULL,NULL);/*establish the connection*/
 		if(connfd<0){
+			if(errno==EINTR)
+				break;
 			printf("ERROR in accept(): %s\n",strerror(errno));
 			exit(1);
 		}
@@ -54,25 +79,19 @@ int main(int argc,char** argv){
 		printf("connection accepted\n");
 		while(onfile){
 			count=0;/*counts each time how many chars that were sent to the server in each iteration were printable chars*/
-			while(1){/*reading from client until we read everything*/
-				amount_read=read(connfd,temparr+temp2,1-temp2);/*limit how much we read each time to 1024*/
-				if(amount_read<0){
-					printf("ERROR in read(): %s\n",strerror(errno));
-					exit(1);
-				}
-				else if(amount_read==0){
-					onfile=0;
-					break;
-				}
-				temp2+=amount_read;
-				if(temp2==1)
-					break;
-				printf("%d\n",temp2);
+			/*reading from client until we read everything*/
+			amount_read=read(connfd,temparr,1024);/*limit how much we read each time to 1024*/
+			if(amount_read<0){
+				printf("ERROR in read(): %s\n",strerror(errno));
+				exit(1);
 			}
-			if(onfile==0)
+			else if(amount_read==0){
+				onfile=0;
 				break;
+			}
+			printf("%d\n",amount_read);
 			printf("finished reading\n");
-			for(i=0;i<temp2;i++){
+			for(i=0;i<amount_read;i++){
 				if(temparr[i]>=32 && temparr[i]<=126){/*found printable,increase needed counters*/
 					count++;
 					pcc_total[temparr[i]-32]++;
@@ -82,21 +101,27 @@ int main(int argc,char** argv){
 			length=snprintf(NULL,0,"%d",count);/*coverting the int to a string*/
 			str=(char*)calloc(length+1,sizeof(char));/*from stackoverflow "how to convert an int to string in c*/
 			snprintf(str,length+1,"%d",count);
+			printf("the answer is %s\n",str);
+			memset(temparr2,0,5);/*since we receive up to 1024 chars,we will need 4 bits to send the asnwer*/
+			memcpy(temparr2,str,length+1);/*last place in temparr will always be \0*/
+			printf("the the string we are going to send is %s\n",temparr2);
 			while(1){
-				amount_sent=write(connfd,str+temp3,length-temp3);
+				amount_sent=write(connfd,temparr2+temp3,4-temp3);
 				if(amount_sent<0){
 					printf("ERROR in write(): %s\n",strerror(errno));
 					exit(1);
 				}
 				temp3+=amount_sent;
-				if(temp3==length)/*we sent the result of this chunk of chars to the client*/
+				if(temp3==4)/*we sent the result of this chunk of chars to the client*/
 					break;
 			}
+			temp3=0;
 			printf("sent answer\n");
-			temp2=0;
 			free(str);
 			printf("%d\n",count);
 		}
+		close(connfd);
 	}
+	printprintable(pcc_total);
 	exit(0);
 }
