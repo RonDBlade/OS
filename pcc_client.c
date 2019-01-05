@@ -66,7 +66,7 @@ int main(int argc,char** argv){
 		else
 			temp2=1024;
 		printf("%d\n",temp2);
-		amount_sent=write(sockfd,mymessage+total_sent,1024);/*writes some of the chars to the server*/
+		amount_sent=write(sockfd,mymessage+total_sent,1);/*writes some of the chars to the server*/
 		if(amount_sent<0){/*error occured*/
 			printf("ERROR in write(): %s\n",strerror(errno));
 			exit(1);

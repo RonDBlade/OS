@@ -20,7 +20,7 @@ unsigned int string_to_int(char* thread_count){/*translate the argument which sp
 
 int main(int argc,char** argv){
 	int listenfd,connfd,onfile;
-	unsigned int temp,amount_read,temp2=0,i,count,amount_sent,length,temp3=0;
+	unsigned int temp,amount_read,temp2=0,i,count=0,amount_sent,length,temp3=0;
 	struct sockaddr_in serv_addr;
 	char temparr[1024];
 	char* str;
@@ -55,18 +55,22 @@ int main(int argc,char** argv){
 		while(onfile){
 			count=0;/*counts each time how many chars that were sent to the server in each iteration were printable chars*/
 			while(1){/*reading from client until we read everything*/
-				amount_read=read(connfd,temparr+temp2,1024-temp2);/*limit how much we read each time to 1024*/
+				amount_read=read(connfd,temparr+temp2,1-temp2);/*limit how much we read each time to 1024*/
 				if(amount_read<0){
 					printf("ERROR in read(): %s\n",strerror(errno));
 					exit(1);
 				}
-				else if(amount_read==0)
+				else if(amount_read==0){
+					onfile=0;
 					break;
+				}
 				temp2+=amount_read;
-				if(temp2==1024)
+				if(temp2==1)
 					break;
 				printf("%d\n",temp2);
 			}
+			if(onfile==0)
+				break;
 			printf("finished reading\n");
 			for(i=0;i<temp2;i++){
 				if(temparr[i]>=32 && temparr[i]<=126){/*found printable,increase needed counters*/
@@ -92,7 +96,6 @@ int main(int argc,char** argv){
 			temp2=0;
 			free(str);
 			printf("%d\n",count);
-			onfile=0;
 		}
 	}
 	exit(0);
